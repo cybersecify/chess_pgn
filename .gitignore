@@ -11,3 +11,9 @@ wheels/
 
 # Cached API responses
 .chess_cache/
+
+# PGN output files
+*.pgn
+
+# DuckDB files
+data/
