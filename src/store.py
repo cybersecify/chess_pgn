@@ -336,3 +336,45 @@ def rating_history(conn: duckdb.DuckDBPyConnection, username: str) -> dict:
         delta = (elo - first_elo) if first_elo is not None else None
         result[tc] = {"current": elo, "delta": delta}
     return result
+
+
+def opponent_stats(conn: duckdb.DuckDBPyConnection, username: str, opponent: str) -> dict:
+    rows = conn.execute("""
+        SELECT time_class,
+               CASE WHEN white = ? THEN white_result ELSE black_result END AS result,
+               COUNT(*) AS cnt
+        FROM games
+        WHERE (white = ? AND black = ?) OR (black = ? AND white = ?)
+        GROUP BY time_class, result
+    """, [username, username, opponent, username, opponent]).fetchall()
+
+    total = sum(cnt for _, _, cnt in rows)
+    wins = sum(cnt for _, r, cnt in rows if r == "win")
+    losses = sum(cnt for _, r, cnt in rows if r in _LOSS_RESULTS)
+    draws = total - wins - losses
+
+    by_time_class: dict = {}
+    for tc, result, cnt in rows:
+        tc = tc or "unknown"
+        if tc not in by_time_class:
+            by_time_class[tc] = {"win": 0, "lose": 0, "draw": 0}
+        key = "win" if result == "win" else ("lose" if result in _LOSS_RESULTS else "draw")
+        by_time_class[tc][key] += cnt
+
+    top_openings = conn.execute("""
+        SELECT opening, COUNT(*) AS cnt
+        FROM games
+        WHERE ((white = ? AND black = ?) OR (black = ? AND white = ?))
+          AND opening IS NOT NULL
+        GROUP BY opening ORDER BY cnt DESC LIMIT 5
+    """, [username, opponent, username, opponent]).fetchall()
+
+    return {
+        "total": total,
+        "wins": wins,
+        "losses": losses,
+        "draws": draws,
+        "win_pct": wins / total * 100 if total else 0.0,
+        "by_time_class": by_time_class,
+        "top_openings": top_openings,
+    }

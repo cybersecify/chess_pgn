@@ -4,7 +4,8 @@ import pytest
 
 from src.store import (init_db, upsert_games, get_synced_archives,
                         mark_archive_synced, query_games, raw_sql, stats,
-                        _migrate_db, backfill_derived_columns, rating_history)
+                        _migrate_db, backfill_derived_columns, rating_history,
+                        opponent_stats)
 
 
 def make_game(**overrides):
@@ -341,3 +342,40 @@ class TestRatingHistory:
         upsert_games(conn, [make_game(pgn="1. e4 *")])
         result = rating_history(conn, "rathnakaragn")
         assert result == {}
+
+
+class TestOpponentStats:
+    def test_returns_wld_record(self, conn):
+        upsert_games(conn, [
+            make_game(url="u1",
+                      white={"username": "rathnakaragn", "result": "win"},
+                      black={"username": "fischer", "result": "lose"}),
+            make_game(url="u2",
+                      white={"username": "fischer", "result": "win"},
+                      black={"username": "rathnakaragn", "result": "lose"}),
+        ])
+        result = opponent_stats(conn, "rathnakaragn", "fischer")
+        assert result["total"] == 2
+        assert result["wins"] == 1
+        assert result["losses"] == 1
+        assert result["draws"] == 0
+        assert result["win_pct"] == 50.0
+
+    def test_by_time_class(self, conn):
+        upsert_games(conn, [
+            make_game(url="u1", time_class="rapid",
+                      white={"username": "rathnakaragn", "result": "win"},
+                      black={"username": "fischer", "result": "lose"}),
+            make_game(url="u2", time_class="blitz",
+                      white={"username": "rathnakaragn", "result": "lose"},
+                      black={"username": "fischer", "result": "win"}),
+        ])
+        result = opponent_stats(conn, "rathnakaragn", "fischer")
+        assert result["by_time_class"]["rapid"]["win"] == 1
+        assert result["by_time_class"]["blitz"]["lose"] == 1
+
+    def test_no_games_returns_zero(self, conn):
+        result = opponent_stats(conn, "rathnakaragn", "kasparov")
+        assert result["total"] == 0
+        assert result["win_pct"] == 0.0
+        assert result["by_time_class"] == {}

@@ -202,6 +202,33 @@ def cmd_rating(args: argparse.Namespace) -> None:
         conn.close()
 
 
+def cmd_opponent(args: argparse.Namespace) -> None:
+    username = args.username
+    db_path = args.db or _default_db(username)
+    conn = _open_existing_db(db_path)
+    try:
+        result = store.opponent_stats(conn, username, args.opponent)
+        if result["total"] == 0:
+            print(f"No games found against '{args.opponent}'.", file=sys.stderr)
+            return
+        print(f"\n=== {username} vs {args.opponent} ===")
+        print(f"Total: {result['total']}  W:{result['wins']}  L:{result['losses']}  "
+              f"D:{result['draws']}  ({result['win_pct']:.0f}% win)\n")
+        if result["by_time_class"]:
+            print("By format:")
+            for tc, counts in sorted(result["by_time_class"].items()):
+                total_tc = sum(counts.values())
+                pct = counts["win"] / total_tc * 100 if total_tc else 0
+                print(f"  {tc:8s}  W:{counts['win']}  L:{counts['lose']}  "
+                      f"D:{counts['draw']}  ({pct:.0f}%)")
+        if result["top_openings"]:
+            print("\nTop openings played:")
+            for opening, cnt in result["top_openings"]:
+                print(f"  {opening}: {cnt}")
+    finally:
+        conn.close()
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(
         description="Chess.com game downloader and analyzer."
@@ -259,6 +286,13 @@ def main() -> None:
     p_rating.add_argument("username", nargs="?", default=DEFAULT_USERNAME)
     p_rating.add_argument("--db", help="Path to DuckDB file")
     p_rating.set_defaults(func=cmd_rating)
+
+    # opponent
+    p_opponent = sub.add_parser("opponent", help="Show record against a specific player")
+    p_opponent.add_argument("opponent", help="Opponent username")
+    p_opponent.add_argument("--username", default=DEFAULT_USERNAME)
+    p_opponent.add_argument("--db", help="Path to DuckDB file")
+    p_opponent.set_defaults(func=cmd_opponent)
 
     args = ap.parse_args()
     args.func(args)
