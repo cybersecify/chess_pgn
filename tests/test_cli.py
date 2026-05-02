@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.store import init_db
+from src.store import init_db, upsert_games
 
 
 ARCHIVE_URL = "https://api.chess.com/pub/player/rathnakaragn/games/2024/01"
@@ -80,7 +80,6 @@ class TestSync:
 class TestExport:
     def _seed_db(self, db_path):
         conn = init_db(db_path)
-        from src.store import upsert_games
         upsert_games(conn, [SAMPLE_GAME])
         conn.close()
 
@@ -100,7 +99,6 @@ class TestExport:
     def test_export_filter_time_class(self, tmp_path):
         db_path = str(tmp_path / "test.duckdb")
         conn = init_db(db_path)
-        from src.store import upsert_games
         upsert_games(conn, [
             SAMPLE_GAME,  # rapid, Opening "Sicilian Defense"
             {**SAMPLE_GAME, "url": "u2", "time_class": "blitz",
@@ -123,7 +121,6 @@ class TestQuery:
     def test_query_prints_rows(self, tmp_path, capsys):
         db_path = str(tmp_path / "test.duckdb")
         conn = init_db(db_path)
-        from src.store import upsert_games
         upsert_games(conn, [SAMPLE_GAME])
         conn.close()
         run_cli("query", "SELECT url FROM games", "--db", db_path)
@@ -132,7 +129,8 @@ class TestQuery:
 
     def test_query_invalid_sql_exits(self, tmp_path):
         db_path = str(tmp_path / "test.duckdb")
-        init_db(db_path)
+        conn = init_db(db_path)
+        conn.close()
         with pytest.raises(SystemExit) as exc:
             run_cli("query", "SELECT FROM NOWHERE", "--db", db_path)
         assert exc.value.code == 1
@@ -142,7 +140,6 @@ class TestStats:
     def test_stats_prints_total(self, tmp_path, capsys):
         db_path = str(tmp_path / "test.duckdb")
         conn = init_db(db_path)
-        from src.store import upsert_games
         upsert_games(conn, [SAMPLE_GAME])
         conn.close()
         run_cli("stats", "rathnakaragn", "--db", db_path)
