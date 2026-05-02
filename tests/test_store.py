@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.store import init_db, upsert_games, get_synced_archives, mark_archive_synced
+from src.store import init_db, upsert_games, get_synced_archives, mark_archive_synced, query_games
 
 
 def make_game(**overrides):
@@ -92,3 +92,54 @@ class TestArchiveTracking:
         mark_archive_synced(conn, url)
         mark_archive_synced(conn, url)  # should not raise
         assert len(get_synced_archives(conn)) == 1
+
+
+class TestQueryGames:
+    def test_returns_all(self, conn):
+        upsert_games(conn, [make_game(url="u1"), make_game(url="u2")])
+        assert len(query_games(conn)) == 2
+
+    def test_filter_time_class(self, conn):
+        upsert_games(conn, [
+            make_game(url="u1", time_class="rapid"),
+            make_game(url="u2", time_class="blitz"),
+        ])
+        results = query_games(conn, time_class="rapid")
+        assert len(results) == 1
+        assert results[0]["time_class"] == "rapid"
+
+    def test_filter_since(self, conn):
+        upsert_games(conn, [
+            make_game(url="u1", end_time=1704067200),  # 2024-01-01
+            make_game(url="u2", end_time=1706745600),  # 2024-02-01
+        ])
+        results = query_games(conn, since="20240201")
+        assert len(results) == 1
+        assert results[0]["url"] == "u2"
+
+    def test_filter_until(self, conn):
+        upsert_games(conn, [
+            make_game(url="u1", end_time=1704067200),  # 2024-01-01
+            make_game(url="u2", end_time=1706745600),  # 2024-02-01
+        ])
+        results = query_games(conn, until="20240131")
+        assert len(results) == 1
+        assert results[0]["url"] == "u1"
+
+    def test_filter_n_last(self, conn):
+        games = [
+            make_game(url=f"u{i}", end_time=1704067200 + i * 86400)
+            for i in range(5)
+        ]
+        upsert_games(conn, games)
+        results = query_games(conn, n=2)
+        assert len(results) == 2
+        assert results[0]["url"] == "u3"
+        assert results[1]["url"] == "u4"
+
+    def test_returns_dicts(self, conn):
+        upsert_games(conn, [make_game()])
+        results = query_games(conn)
+        assert isinstance(results[0], dict)
+        assert "url" in results[0]
+        assert "pgn" in results[0]

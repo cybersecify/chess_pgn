@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import re
 import time
 from pathlib import Path
@@ -87,3 +88,48 @@ def mark_archive_synced(conn: duckdb.DuckDBPyConnection, archive_url: str) -> No
         "INSERT INTO synced_archives VALUES (?, ?) ON CONFLICT (url) DO NOTHING",
         [archive_url, int(time.time())],
     )
+
+
+def _yyyymmdd_to_ts(date_str: str, end_of_day: bool = False) -> int:
+    year, month, day = int(date_str[:4]), int(date_str[4:6]), int(date_str[6:8])
+    hour, minute, second = (23, 59, 59) if end_of_day else (0, 0, 0)
+    dt = datetime.datetime(year, month, day, hour, minute, second,
+                           tzinfo=datetime.timezone.utc)
+    return int(dt.timestamp())
+
+
+def query_games(
+    conn: duckdb.DuckDBPyConnection,
+    time_class: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    n: int | None = None,
+) -> list[dict]:
+    conditions: list[str] = []
+    params: list = []
+
+    if time_class:
+        conditions.append("time_class = ?")
+        params.append(time_class)
+    if since:
+        conditions.append("end_time >= ?")
+        params.append(_yyyymmdd_to_ts(since))
+    if until:
+        conditions.append("end_time <= ?")
+        params.append(_yyyymmdd_to_ts(until, end_of_day=True))
+
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+    if n:
+        sql = f"""
+            SELECT * FROM (
+                SELECT * FROM games {where} ORDER BY end_time DESC LIMIT ?
+            ) sub ORDER BY end_time ASC
+        """
+        params.append(n)
+    else:
+        sql = f"SELECT * FROM games {where} ORDER BY end_time ASC"
+
+    result = conn.execute(sql, params)
+    cols = [d[0] for d in result.description]
+    return [dict(zip(cols, row)) for row in result.fetchall()]
