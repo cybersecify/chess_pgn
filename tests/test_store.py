@@ -1,7 +1,6 @@
 """Unit tests for src.store — all use in-memory DuckDB."""
 
 import pytest
-import duckdb
 
 from src.store import init_db, upsert_games
 

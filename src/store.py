@@ -8,7 +8,7 @@ from pathlib import Path
 import duckdb
 
 
-def _parse_pgn_header(pgn: str, tag: str) -> str | None:
+def _parse_pgn_header(pgn: str | None, tag: str) -> str | None:
     m = re.search(rf'\[{tag} "([^"]*)"\]', pgn or "")
     return m.group(1) if m else None
 
@@ -48,9 +48,12 @@ def upsert_games(conn: duckdb.DuckDBPyConnection, games: list[dict]) -> int:
         return 0
     rows = []
     for g in games:
+        url = g.get("url")
+        if not url:
+            continue
         pgn = g.get("pgn", "")
         rows.append((
-            g.get("url", ""),
+            url,
             pgn,
             g.get("time_class"),
             g.get("time_control"),
