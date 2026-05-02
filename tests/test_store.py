@@ -103,6 +103,17 @@ class TestUpsertGames:
         row = conn.execute("SELECT opening FROM games").fetchone()
         assert row[0] == "Sicilian Defense"
 
+    def test_new_columns_populated(self, conn):
+        upsert_games(conn, [make_game()])
+        row = conn.execute(
+            "SELECT white_elo, black_elo, move_count, game_duration_secs, termination FROM games"
+        ).fetchone()
+        assert row[0] == 1200   # white_elo
+        assert row[1] == 1100   # black_elo
+        assert row[2] == 2      # move_count: last move number is "2. Nf3"
+        assert row[3] == 900    # game_duration_secs: 00:00:00 to 00:15:00 = 900s
+        assert row[4] == "rathnakaragn won by resignation"
+
 
 class TestArchiveTracking:
     def test_empty_initially(self, conn):

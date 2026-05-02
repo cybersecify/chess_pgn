@@ -17,6 +17,62 @@ def _parse_pgn_header(pgn: str | None, tag: str) -> str | None:
     return m.group(1) if m else None
 
 
+def _parse_opening(pgn: str | None) -> str | None:
+    # chess.com PGNs use ECOUrl instead of Opening tag
+    url = _parse_pgn_header(pgn, "ECOUrl")
+    if url:
+        slug = url.rstrip("/").rsplit("/", 1)[-1]
+        return slug.replace("-", " ")
+    return _parse_pgn_header(pgn, "Opening")
+
+
+def _parse_elo(pgn: str | None, color: str) -> int | None:
+    val = _parse_pgn_header(pgn, f"{color}Elo")
+    try:
+        return int(val) if val else None
+    except ValueError:
+        return None
+
+
+def _parse_move_count(pgn: str | None) -> int | None:
+    if not pgn:
+        return None
+    parts = re.split(r'\n\n', pgn, maxsplit=1)
+    moves = parts[1] if len(parts) > 1 else parts[0]
+    numbers = re.findall(r'\b(\d+)\.\s', moves)
+    return int(numbers[-1]) if numbers else None
+
+
+def _parse_duration_secs(pgn: str | None) -> int | None:
+    start_date = _parse_pgn_header(pgn, "UTCDate")
+    start_time = _parse_pgn_header(pgn, "StartTime")
+    end_date   = _parse_pgn_header(pgn, "EndDate")
+    end_time   = _parse_pgn_header(pgn, "EndTime")
+    if not all([start_date, start_time, end_date, end_time]):
+        return None
+    try:
+        fmt = "%Y.%m.%d %H:%M:%S"
+        start = datetime.datetime.strptime(f"{start_date} {start_time}", fmt)
+        end   = datetime.datetime.strptime(f"{end_date} {end_time}", fmt)
+        secs = int((end - start).total_seconds())
+        return secs if secs >= 0 else None
+    except ValueError:
+        return None
+
+
+def _migrate_db(conn: duckdb.DuckDBPyConnection) -> None:
+    existing = {r[0] for r in conn.execute("DESCRIBE games").fetchall()}
+    for col, typ in [
+        ("white_elo",          "INTEGER"),
+        ("black_elo",          "INTEGER"),
+        ("move_count",         "INTEGER"),
+        ("game_duration_secs", "INTEGER"),
+        ("termination",        "TEXT"),
+    ]:
+        if col not in existing:
+            conn.execute(f"ALTER TABLE games ADD COLUMN {col} {typ}")
+
+
 def init_db(db_path: str) -> duckdb.DuckDBPyConnection:
     if db_path != ":memory:":
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -44,6 +100,7 @@ def init_db(db_path: str) -> duckdb.DuckDBPyConnection:
             synced_at INTEGER
         )
     """)
+    _migrate_db(conn)
     return conn
 
 
@@ -69,13 +126,18 @@ def upsert_games(conn: duckdb.DuckDBPyConnection, games: list[dict]) -> int:
             g.get("rated"),
             g.get("fen"),
             _parse_pgn_header(pgn, "ECO"),
-            _parse_pgn_header(pgn, "Opening"),
+            _parse_opening(pgn),
+            _parse_elo(pgn, "White"),
+            _parse_elo(pgn, "Black"),
+            _parse_move_count(pgn),
+            _parse_duration_secs(pgn),
+            _parse_pgn_header(pgn, "Termination"),
         ))
     if not rows:
         return 0
     before = conn.execute("SELECT COUNT(*) FROM games").fetchone()[0]
     conn.executemany("""
-        INSERT INTO games VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO games VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (url) DO NOTHING
     """, rows)
     after = conn.execute("SELECT COUNT(*) FROM games").fetchone()[0]
