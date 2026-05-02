@@ -117,3 +117,39 @@ class TestExport:
         with pytest.raises(SystemExit) as exc:
             run_cli("export", "--db", str(tmp_path / "missing.duckdb"))
         assert exc.value.code == 1
+
+
+class TestQuery:
+    def test_query_prints_rows(self, tmp_path, capsys):
+        db_path = str(tmp_path / "test.duckdb")
+        conn = init_db(db_path)
+        from src.store import upsert_games
+        upsert_games(conn, [SAMPLE_GAME])
+        conn.close()
+        run_cli("query", "SELECT url FROM games", "--db", db_path)
+        out = capsys.readouterr().out
+        assert "https://chess.com/game/1" in out
+
+    def test_query_invalid_sql_exits(self, tmp_path):
+        db_path = str(tmp_path / "test.duckdb")
+        init_db(db_path)
+        with pytest.raises(SystemExit) as exc:
+            run_cli("query", "SELECT FROM NOWHERE", "--db", db_path)
+        assert exc.value.code == 1
+
+
+class TestStats:
+    def test_stats_prints_total(self, tmp_path, capsys):
+        db_path = str(tmp_path / "test.duckdb")
+        conn = init_db(db_path)
+        from src.store import upsert_games
+        upsert_games(conn, [SAMPLE_GAME])
+        conn.close()
+        run_cli("stats", "rathnakaragn", "--db", db_path)
+        out = capsys.readouterr().out
+        assert "Total games: 1" in out
+
+    def test_stats_missing_db_exits(self, tmp_path):
+        with pytest.raises(SystemExit) as exc:
+            run_cli("stats", "rathnakaragn", "--db", str(tmp_path / "missing.duckdb"))
+        assert exc.value.code == 1
