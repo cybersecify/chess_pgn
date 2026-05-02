@@ -161,6 +161,36 @@ def mark_archive_synced(conn: duckdb.DuckDBPyConnection, archive_url: str) -> No
     )
 
 
+def backfill_derived_columns(conn: duckdb.DuckDBPyConnection) -> int:
+    rows = conn.execute("""
+        SELECT url, pgn FROM games
+        WHERE pgn IS NOT NULL
+          AND (white_elo IS NULL OR black_elo IS NULL OR move_count IS NULL
+               OR game_duration_secs IS NULL OR termination IS NULL OR opening IS NULL)
+    """).fetchall()
+    if not rows:
+        return 0
+    updates = [
+        (
+            _parse_elo(pgn, "White"),
+            _parse_elo(pgn, "Black"),
+            _parse_move_count(pgn),
+            _parse_duration_secs(pgn),
+            _parse_pgn_header(pgn, "Termination"),
+            _parse_opening(pgn),
+            url,
+        )
+        for url, pgn in rows
+    ]
+    conn.executemany("""
+        UPDATE games SET
+            white_elo = ?, black_elo = ?, move_count = ?,
+            game_duration_secs = ?, termination = ?, opening = ?
+        WHERE url = ?
+    """, updates)
+    return len(updates)
+
+
 def _yyyymmdd_to_ts(date_str: str, end_of_day: bool = False) -> int:
     year, month, day = int(date_str[:4]), int(date_str[4:6]), int(date_str[6:8])
     hour, minute, second = (23, 59, 59) if end_of_day else (0, 0, 0)

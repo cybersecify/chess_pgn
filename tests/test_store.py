@@ -2,7 +2,9 @@
 
 import pytest
 
-from src.store import init_db, upsert_games, get_synced_archives, mark_archive_synced, query_games, raw_sql, stats, _migrate_db
+from src.store import (init_db, upsert_games, get_synced_archives,
+                        mark_archive_synced, query_games, raw_sql, stats,
+                        _migrate_db, backfill_derived_columns)
 
 
 def make_game(**overrides):
@@ -297,3 +299,26 @@ class TestMigrateDb:
         _migrate_db(conn)  # should not raise
         cols = {r[0] for r in conn.execute("DESCRIBE games").fetchall()}
         assert len(cols) == 18
+
+
+class TestBackfill:
+    def test_backfills_nulled_columns(self, conn):
+        upsert_games(conn, [make_game()])
+        # Simulate old rows with NULLs in derived columns
+        conn.execute("UPDATE games SET white_elo = NULL, move_count = NULL, termination = NULL")
+        updated = backfill_derived_columns(conn)
+        assert updated == 1
+        row = conn.execute("SELECT white_elo, move_count, termination FROM games").fetchone()
+        assert row[0] == 1200
+        assert row[1] == 2
+        assert row[2] == "rathnakaragn won by resignation"
+
+    def test_skips_complete_rows(self, conn):
+        upsert_games(conn, [make_game()])
+        # All derived columns already populated — nothing to do
+        updated = backfill_derived_columns(conn)
+        assert updated == 0
+
+    def test_returns_zero_when_no_games(self, conn):
+        updated = backfill_derived_columns(conn)
+        assert updated == 0
