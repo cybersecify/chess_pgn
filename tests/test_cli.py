@@ -150,3 +150,19 @@ class TestStats:
         with pytest.raises(SystemExit) as exc:
             run_cli("stats", "rathnakaragn", "--db", str(tmp_path / "missing.duckdb"))
         assert exc.value.code == 1
+
+
+class TestBackfill:
+    def test_backfill_updates_rows(self, tmp_path, capsys):
+        db_path = str(tmp_path / "test.duckdb")
+        conn = init_db(db_path)
+        upsert_games(conn, [SAMPLE_GAME])
+        conn.close()
+        run_cli("backfill", "rathnakaragn", "--db", db_path)
+        err = capsys.readouterr().err
+        assert "rows updated" in err
+
+    def test_backfill_missing_db_exits(self, tmp_path):
+        with pytest.raises(SystemExit) as exc:
+            run_cli("backfill", "rathnakaragn", "--db", str(tmp_path / "missing.duckdb"))
+        assert exc.value.code == 1
