@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.store import init_db, upsert_games, get_synced_archives, mark_archive_synced, query_games, raw_sql, stats
+from src.store import init_db, upsert_games, get_synced_archives, mark_archive_synced, query_games, raw_sql, stats, _migrate_db
 
 
 def make_game(**overrides):
@@ -261,3 +261,39 @@ class TestStats:
         result = stats(conn, "rathnakaragn")
         openings = [o for o, _ in result["top_openings"]]
         assert openings[0] == "Sicilian Defense"
+
+
+class TestMigrateDb:
+    def test_adds_missing_columns_to_old_schema(self):
+        import duckdb
+        conn = duckdb.connect(":memory:")
+        conn.execute("""
+            CREATE TABLE games (
+                url TEXT PRIMARY KEY,
+                pgn TEXT,
+                opening TEXT
+            )
+        """)
+        _migrate_db(conn)
+        cols = {r[0] for r in conn.execute("DESCRIBE games").fetchall()}
+        assert "white_elo" in cols
+        assert "black_elo" in cols
+        assert "move_count" in cols
+        assert "game_duration_secs" in cols
+        assert "termination" in cols
+
+    def test_idempotent_on_full_schema(self):
+        import duckdb
+        conn = duckdb.connect(":memory:")
+        conn.execute("""
+            CREATE TABLE games (
+                url TEXT PRIMARY KEY, pgn TEXT, time_class TEXT, time_control TEXT,
+                end_time INTEGER, white TEXT, black TEXT, white_result TEXT,
+                black_result TEXT, rated BOOLEAN, fen TEXT, eco TEXT, opening TEXT,
+                white_elo INTEGER, black_elo INTEGER, move_count INTEGER,
+                game_duration_secs INTEGER, termination TEXT
+            )
+        """)
+        _migrate_db(conn)  # should not raise
+        cols = {r[0] for r in conn.execute("DESCRIBE games").fetchall()}
+        assert len(cols) == 18

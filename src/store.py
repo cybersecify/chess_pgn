@@ -79,19 +79,24 @@ def init_db(db_path: str) -> duckdb.DuckDBPyConnection:
     conn = duckdb.connect(db_path)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS games (
-            url          TEXT PRIMARY KEY,
-            pgn          TEXT,
-            time_class   TEXT,
-            time_control TEXT,
-            end_time     INTEGER,
-            white        TEXT,
-            black        TEXT,
-            white_result TEXT,
-            black_result TEXT,
-            rated        BOOLEAN,
-            fen          TEXT,
-            eco          TEXT,
-            opening      TEXT
+            url               TEXT PRIMARY KEY,
+            pgn               TEXT,
+            time_class        TEXT,
+            time_control      TEXT,
+            end_time          INTEGER,
+            white             TEXT,
+            black             TEXT,
+            white_result      TEXT,
+            black_result      TEXT,
+            rated             BOOLEAN,
+            fen               TEXT,
+            eco               TEXT,
+            opening           TEXT,
+            white_elo         INTEGER,
+            black_elo         INTEGER,
+            move_count        INTEGER,
+            game_duration_secs INTEGER,
+            termination       TEXT
         )
     """)
     conn.execute("""
