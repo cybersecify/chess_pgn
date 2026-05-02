@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import time
 from pathlib import Path
 
 import duckdb
@@ -74,3 +75,15 @@ def upsert_games(conn: duckdb.DuckDBPyConnection, games: list[dict]) -> int:
     """, rows)
     after = conn.execute("SELECT COUNT(*) FROM games").fetchone()[0]
     return after - before
+
+
+def get_synced_archives(conn: duckdb.DuckDBPyConnection) -> set[str]:
+    rows = conn.execute("SELECT url FROM synced_archives").fetchall()
+    return {r[0] for r in rows}
+
+
+def mark_archive_synced(conn: duckdb.DuckDBPyConnection, archive_url: str) -> None:
+    conn.execute(
+        "INSERT INTO synced_archives VALUES (?, ?) ON CONFLICT (url) DO NOTHING",
+        [archive_url, int(time.time())],
+    )

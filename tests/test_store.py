@@ -76,3 +76,22 @@ class TestUpsertGames:
         row = conn.execute("SELECT eco, opening FROM games").fetchone()
         assert row[0] is None
         assert row[1] is None
+
+
+from src.store import get_synced_archives, mark_archive_synced
+
+
+class TestArchiveTracking:
+    def test_empty_initially(self, conn):
+        assert get_synced_archives(conn) == set()
+
+    def test_mark_and_retrieve(self, conn):
+        url = "https://api.chess.com/pub/player/rathnakaragn/games/2024/01"
+        mark_archive_synced(conn, url)
+        assert url in get_synced_archives(conn)
+
+    def test_mark_idempotent(self, conn):
+        url = "https://api.chess.com/pub/player/rathnakaragn/games/2024/01"
+        mark_archive_synced(conn, url)
+        mark_archive_synced(conn, url)  # should not raise
+        assert len(get_synced_archives(conn)) == 1
