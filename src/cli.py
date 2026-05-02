@@ -79,7 +79,7 @@ def cmd_sync(args: argparse.Namespace) -> None:
                 continue
             if until_ym and ym > until_ym:
                 continue
-            if url in synced and ym != current_ym:
+            if not args.force and url in synced and ym != current_ym:
                 continue
             to_fetch.append(url)
 
@@ -146,9 +146,12 @@ def cmd_stats(args: argparse.Namespace) -> None:
     db_path = args.db or _default_db(username)
     conn = _open_existing_db(db_path)
     try:
-        result = store.stats(conn, username)
+        result = store.stats(conn, username, args.time_class)
 
-        print(f"\n=== Stats for {username} ===")
+        header = f"\n=== Stats for {username}"
+        if args.time_class:
+            header += f" ({args.time_class})"
+        print(header + " ===")
         print(f"Total games: {result['total']}\n")
         for tc, counts in sorted(result["by_time_class"].items()):
             total_tc = sum(counts.values())
@@ -179,6 +182,8 @@ def main() -> None:
                         help="Only sync archives on or after YYYYMMDD")
     p_sync.add_argument("--until", type=_validate_date,
                         help="Only sync archives on or before YYYYMMDD")
+    p_sync.add_argument("--force", action="store_true",
+                        help="Re-fetch all archives, ignoring the cache")
     p_sync.set_defaults(func=cmd_sync)
 
     # export
@@ -204,6 +209,9 @@ def main() -> None:
     p_stats = sub.add_parser("stats", help="Show game statistics dashboard")
     p_stats.add_argument("username", nargs="?", default=DEFAULT_USERNAME)
     p_stats.add_argument("--db", help="Path to DuckDB file")
+    p_stats.add_argument("--time-class", dest="time_class",
+                         choices=["bullet", "blitz", "rapid", "daily"],
+                         help="Filter stats and streaks to one time control")
     p_stats.set_defaults(func=cmd_stats)
 
     args = ap.parse_args()

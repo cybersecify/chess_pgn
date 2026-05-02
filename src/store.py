@@ -144,20 +144,23 @@ def raw_sql(conn: duckdb.DuckDBPyConnection, sql: str) -> list[tuple]:
     return conn.execute(sql).fetchall()
 
 
-def stats(conn: duckdb.DuckDBPyConnection, username: str) -> dict:
+def stats(conn: duckdb.DuckDBPyConnection, username: str, time_class: str | None = None) -> dict:
+    tc_filter = "AND time_class = ?" if time_class else ""
+    tc_params = [time_class] if time_class else []
+
     total = conn.execute(
-        "SELECT COUNT(*) FROM games WHERE white = ? OR black = ?",
-        [username, username],
+        f"SELECT COUNT(*) FROM games WHERE (white = ? OR black = ?) {tc_filter}",
+        [username, username] + tc_params,
     ).fetchone()[0]
 
-    rows = conn.execute("""
+    rows = conn.execute(f"""
         SELECT time_class,
                CASE WHEN white = ? THEN white_result ELSE black_result END AS result,
                COUNT(*) AS cnt
         FROM games
-        WHERE white = ? OR black = ?
+        WHERE (white = ? OR black = ?) {tc_filter}
         GROUP BY time_class, result
-    """, [username, username, username]).fetchall()
+    """, [username, username, username] + tc_params).fetchall()
 
     by_time_class: dict = {}
     for tc, result, cnt in rows:
@@ -167,21 +170,21 @@ def stats(conn: duckdb.DuckDBPyConnection, username: str) -> dict:
         key = "win" if result == "win" else ("lose" if result in _LOSS_RESULTS else "draw")
         by_time_class[tc][key] += cnt
 
-    top_openings = conn.execute("""
+    top_openings = conn.execute(f"""
         SELECT opening, COUNT(*) AS cnt
         FROM games
-        WHERE (white = ? OR black = ?) AND opening IS NOT NULL
+        WHERE (white = ? OR black = ?) AND opening IS NOT NULL {tc_filter}
         GROUP BY opening
         ORDER BY cnt DESC
         LIMIT 5
-    """, [username, username]).fetchall()
+    """, [username, username] + tc_params).fetchall()
 
-    game_results = conn.execute("""
+    game_results = conn.execute(f"""
         SELECT CASE WHEN white = ? THEN white_result ELSE black_result END AS result
         FROM games
-        WHERE white = ? OR black = ?
+        WHERE (white = ? OR black = ?) {tc_filter}
         ORDER BY end_time ASC NULLS LAST
-    """, [username, username, username]).fetchall()
+    """, [username, username, username] + tc_params).fetchall()
 
     streak = 0
     longest_streak = 0
