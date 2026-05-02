@@ -180,6 +180,28 @@ def cmd_backfill(args: argparse.Namespace) -> None:
         conn.close()
 
 
+def cmd_rating(args: argparse.Namespace) -> None:
+    username = args.username
+    db_path = args.db or _default_db(username)
+    conn = _open_existing_db(db_path)
+    try:
+        result = store.rating_history(conn, username)
+        if not result:
+            print("No rating data found. Run 'backfill' first.", file=sys.stderr)
+            return
+        print(f"\n=== Rating for {username} ===\n")
+        for tc, data in sorted(result.items()):
+            delta = data["delta"]
+            if delta is not None:
+                sign = "+" if delta >= 0 else ""
+                delta_str = f"  ({sign}{delta} this month)"
+            else:
+                delta_str = ""
+            print(f"{tc:8s}  {data['current']}{delta_str}")
+    finally:
+        conn.close()
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(
         description="Chess.com game downloader and analyzer."
@@ -231,6 +253,12 @@ def main() -> None:
     p_backfill.add_argument("username", nargs="?", default=DEFAULT_USERNAME)
     p_backfill.add_argument("--db", help="Path to DuckDB file")
     p_backfill.set_defaults(func=cmd_backfill)
+
+    # rating
+    p_rating = sub.add_parser("rating", help="Show current rating and monthly delta per format")
+    p_rating.add_argument("username", nargs="?", default=DEFAULT_USERNAME)
+    p_rating.add_argument("--db", help="Path to DuckDB file")
+    p_rating.set_defaults(func=cmd_rating)
 
     args = ap.parse_args()
     args.func(args)

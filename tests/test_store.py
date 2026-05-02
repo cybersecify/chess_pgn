@@ -4,7 +4,7 @@ import pytest
 
 from src.store import (init_db, upsert_games, get_synced_archives,
                         mark_archive_synced, query_games, raw_sql, stats,
-                        _migrate_db, backfill_derived_columns)
+                        _migrate_db, backfill_derived_columns, rating_history)
 
 
 def make_game(**overrides):
@@ -322,3 +322,22 @@ class TestBackfill:
     def test_returns_zero_when_no_games(self, conn):
         updated = backfill_derived_columns(conn)
         assert updated == 0
+
+
+class TestRatingHistory:
+    def test_returns_current_elo_per_format(self, conn):
+        upsert_games(conn, [make_game()])  # rapid, white_elo=1200
+        result = rating_history(conn, "rathnakaragn")
+        assert "rapid" in result
+        assert result["rapid"]["current"] == 1200
+
+    def test_delta_is_none_when_no_prior_game_this_month(self, conn):
+        # make_game end_time = 2024-01-01, which is not current month (2026-05)
+        upsert_games(conn, [make_game()])
+        result = rating_history(conn, "rathnakaragn")
+        assert result["rapid"]["delta"] is None
+
+    def test_empty_when_no_elo_in_pgn(self, conn):
+        upsert_games(conn, [make_game(pgn="1. e4 *")])
+        result = rating_history(conn, "rathnakaragn")
+        assert result == {}

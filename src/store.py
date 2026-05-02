@@ -301,3 +301,38 @@ def stats(conn: duckdb.DuckDBPyConnection, username: str, time_class: str | None
         "current_streak": current_streak,
         "longest_streak": longest_streak,
     }
+
+
+def rating_history(conn: duckdb.DuckDBPyConnection, username: str) -> dict:
+    rows = conn.execute("""
+        SELECT time_class,
+               CASE WHEN white = ? THEN white_elo ELSE black_elo END AS elo
+        FROM games
+        WHERE (white = ? OR black = ?)
+          AND CASE WHEN white = ? THEN white_elo ELSE black_elo END IS NOT NULL
+          AND end_time IS NOT NULL
+        QUALIFY ROW_NUMBER() OVER (PARTITION BY time_class ORDER BY end_time DESC) = 1
+    """, [username] * 4).fetchall()
+    if not rows:
+        return {}
+    current = {tc: elo for tc, elo in rows}
+
+    t = time.gmtime()
+    month_start = int(datetime.datetime(t.tm_year, t.tm_mon, 1,
+                                        tzinfo=datetime.timezone.utc).timestamp())
+    first_rows = conn.execute("""
+        SELECT time_class,
+               CASE WHEN white = ? THEN white_elo ELSE black_elo END AS elo
+        FROM games
+        WHERE (white = ? OR black = ?) AND end_time >= ?
+          AND CASE WHEN white = ? THEN white_elo ELSE black_elo END IS NOT NULL
+        QUALIFY ROW_NUMBER() OVER (PARTITION BY time_class ORDER BY end_time ASC) = 1
+    """, [username, username, username, month_start, username]).fetchall()
+    first_of_month = {tc: elo for tc, elo in first_rows}
+
+    result = {}
+    for tc, elo in current.items():
+        first_elo = first_of_month.get(tc)
+        delta = (elo - first_elo) if first_elo is not None else None
+        result[tc] = {"current": elo, "delta": delta}
+    return result
