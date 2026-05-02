@@ -136,11 +136,15 @@ def query_games(
 
 
 def raw_sql(conn: duckdb.DuckDBPyConnection, sql: str) -> list[tuple]:
+    """Execute SQL and return all rows. Accepts any SQL including DDL — caller is responsible for safety."""
     return conn.execute(sql).fetchall()
 
 
 def stats(conn: duckdb.DuckDBPyConnection, username: str) -> dict:
-    total = conn.execute("SELECT COUNT(*) FROM games").fetchone()[0]
+    total = conn.execute(
+        "SELECT COUNT(*) FROM games WHERE white = ? OR black = ?",
+        [username, username],
+    ).fetchone()[0]
 
     rows = conn.execute("""
         SELECT time_class,
@@ -172,7 +176,7 @@ def stats(conn: duckdb.DuckDBPyConnection, username: str) -> dict:
         SELECT CASE WHEN white = ? THEN white_result ELSE black_result END AS result
         FROM games
         WHERE white = ? OR black = ?
-        ORDER BY end_time ASC
+        ORDER BY end_time ASC NULLS LAST
     """, [username, username, username]).fetchall()
 
     streak = 0

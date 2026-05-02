@@ -215,7 +215,7 @@ class TestStats:
     def test_top_openings(self, conn):
         upsert_games(conn, [
             make_game(url=f"u{i}",
-                      pgn=f'[Opening "Sicilian Defense"]\n\n1. e4 c5 *')
+                      pgn='[Opening "Sicilian Defense"]\n\n1. e4 c5 *')
             for i in range(3)
         ] + [
             make_game(url="u99",
