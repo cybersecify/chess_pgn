@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import re
 import sys
 import time
@@ -25,6 +26,12 @@ def _validate_date(value: str) -> str:
     if not re.fullmatch(r"\d{8}", value):
         raise argparse.ArgumentTypeError(
             f"invalid date '{value}': expected YYYYMMDD format"
+        )
+    try:
+        datetime.datetime.strptime(value, "%Y%m%d")
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"invalid date '{value}': not a valid calendar date"
         )
     return value
 

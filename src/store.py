@@ -9,6 +9,8 @@ from pathlib import Path
 
 import duckdb
 
+_LOSS_RESULTS = {"lose", "checkmated", "timeout", "resigned", "abandoned"}
+
 
 def _parse_pgn_header(pgn: str | None, tag: str) -> str | None:
     m = re.search(rf'\[{tag} "([^"]*)"\]', pgn or "")
@@ -69,6 +71,8 @@ def upsert_games(conn: duckdb.DuckDBPyConnection, games: list[dict]) -> int:
             _parse_pgn_header(pgn, "ECO"),
             _parse_pgn_header(pgn, "Opening"),
         ))
+    if not rows:
+        return 0
     before = conn.execute("SELECT COUNT(*) FROM games").fetchone()[0]
     conn.executemany("""
         INSERT INTO games VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -160,7 +164,7 @@ def stats(conn: duckdb.DuckDBPyConnection, username: str) -> dict:
         tc = tc or "unknown"
         if tc not in by_time_class:
             by_time_class[tc] = {"win": 0, "lose": 0, "draw": 0}
-        key = result if result in ("win", "lose", "draw") else "draw"
+        key = "win" if result == "win" else ("lose" if result in _LOSS_RESULTS else "draw")
         by_time_class[tc][key] += cnt
 
     top_openings = conn.execute("""
