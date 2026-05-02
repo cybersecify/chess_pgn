@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.store import init_db, upsert_games
+from src.store import init_db, upsert_games, get_synced_archives, mark_archive_synced
 
 
 def make_game(**overrides):
@@ -76,9 +76,6 @@ class TestUpsertGames:
         row = conn.execute("SELECT eco, opening FROM games").fetchone()
         assert row[0] is None
         assert row[1] is None
-
-
-from src.store import get_synced_archives, mark_archive_synced
 
 
 class TestArchiveTracking:
