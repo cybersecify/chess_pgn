@@ -133,3 +133,63 @@ def query_games(
     result = conn.execute(sql, params)
     cols = [d[0] for d in result.description]
     return [dict(zip(cols, row)) for row in result.fetchall()]
+
+
+def raw_sql(conn: duckdb.DuckDBPyConnection, sql: str) -> list[tuple]:
+    return conn.execute(sql).fetchall()
+
+
+def stats(conn: duckdb.DuckDBPyConnection, username: str) -> dict:
+    total = conn.execute("SELECT COUNT(*) FROM games").fetchone()[0]
+
+    rows = conn.execute("""
+        SELECT time_class,
+               CASE WHEN white = ? THEN white_result ELSE black_result END AS result,
+               COUNT(*) AS cnt
+        FROM games
+        WHERE white = ? OR black = ?
+        GROUP BY time_class, result
+    """, [username, username, username]).fetchall()
+
+    by_time_class: dict = {}
+    for tc, result, cnt in rows:
+        tc = tc or "unknown"
+        if tc not in by_time_class:
+            by_time_class[tc] = {"win": 0, "lose": 0, "draw": 0}
+        key = result if result in ("win", "lose", "draw") else "draw"
+        by_time_class[tc][key] += cnt
+
+    top_openings = conn.execute("""
+        SELECT opening, COUNT(*) AS cnt
+        FROM games
+        WHERE (white = ? OR black = ?) AND opening IS NOT NULL
+        GROUP BY opening
+        ORDER BY cnt DESC
+        LIMIT 5
+    """, [username, username]).fetchall()
+
+    game_results = conn.execute("""
+        SELECT CASE WHEN white = ? THEN white_result ELSE black_result END AS result
+        FROM games
+        WHERE white = ? OR black = ?
+        ORDER BY end_time ASC
+    """, [username, username, username]).fetchall()
+
+    streak = 0
+    longest_streak = 0
+    for (result,) in game_results:
+        if result == "win":
+            streak += 1
+            if streak > longest_streak:
+                longest_streak = streak
+        else:
+            streak = 0
+    current_streak = streak
+
+    return {
+        "total": total,
+        "by_time_class": by_time_class,
+        "top_openings": top_openings,
+        "current_streak": current_streak,
+        "longest_streak": longest_streak,
+    }

@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.store import init_db, upsert_games, get_synced_archives, mark_archive_synced, query_games
+from src.store import init_db, upsert_games, get_synced_archives, mark_archive_synced, query_games, raw_sql, stats
 
 
 def make_game(**overrides):
@@ -143,3 +143,84 @@ class TestQueryGames:
         assert isinstance(results[0], dict)
         assert "url" in results[0]
         assert "pgn" in results[0]
+
+
+class TestRawSql:
+    def test_returns_rows(self, conn):
+        upsert_games(conn, [make_game()])
+        rows = raw_sql(conn, "SELECT url FROM games")
+        assert len(rows) == 1
+        assert rows[0][0] == "https://chess.com/game/1"
+
+    def test_empty_result(self, conn):
+        assert raw_sql(conn, "SELECT url FROM games") == []
+
+
+class TestStats:
+    def test_total(self, conn):
+        upsert_games(conn, [make_game(url="u1"), make_game(url="u2")])
+        result = stats(conn, "rathnakaragn")
+        assert result["total"] == 2
+
+    def test_win_loss_count(self, conn):
+        upsert_games(conn, [
+            make_game(url="u1",
+                      white={"username": "rathnakaragn", "result": "win"},
+                      black={"username": "opp", "result": "lose"}),
+            make_game(url="u2",
+                      white={"username": "opp", "result": "win"},
+                      black={"username": "rathnakaragn", "result": "lose"}),
+        ])
+        result = stats(conn, "rathnakaragn")
+        rapid = result["by_time_class"]["rapid"]
+        assert rapid["win"] == 1
+        assert rapid["lose"] == 1
+        assert rapid["draw"] == 0
+
+    def test_longest_streak(self, conn):
+        # 3 wins then 2 losses
+        games = [
+            make_game(
+                url=f"u{i}",
+                end_time=1704067200 + i * 86400,
+                white={"username": "rathnakaragn",
+                       "result": "win" if i < 3 else "lose"},
+                black={"username": "opp",
+                       "result": "lose" if i < 3 else "win"},
+            )
+            for i in range(5)
+        ]
+        upsert_games(conn, games)
+        result = stats(conn, "rathnakaragn")
+        assert result["longest_streak"] == 3
+        assert result["current_streak"] == 0
+
+    def test_current_streak(self, conn):
+        # 1 loss then 2 wins (current streak = 2)
+        games = [
+            make_game(
+                url=f"u{i}",
+                end_time=1704067200 + i * 86400,
+                white={"username": "rathnakaragn",
+                       "result": "lose" if i == 0 else "win"},
+                black={"username": "opp",
+                       "result": "win" if i == 0 else "lose"},
+            )
+            for i in range(3)
+        ]
+        upsert_games(conn, games)
+        result = stats(conn, "rathnakaragn")
+        assert result["current_streak"] == 2
+
+    def test_top_openings(self, conn):
+        upsert_games(conn, [
+            make_game(url=f"u{i}",
+                      pgn=f'[Opening "Sicilian Defense"]\n\n1. e4 c5 *')
+            for i in range(3)
+        ] + [
+            make_game(url="u99",
+                      pgn='[Opening "Ruy Lopez"]\n\n1. e4 e5 *')
+        ])
+        result = stats(conn, "rathnakaragn")
+        openings = [o for o, _ in result["top_openings"]]
+        assert openings[0] == "Sicilian Defense"
