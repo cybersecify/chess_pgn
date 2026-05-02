@@ -166,3 +166,28 @@ class TestBackfill:
         with pytest.raises(SystemExit) as exc:
             run_cli("backfill", "rathnakaragn", "--db", str(tmp_path / "missing.duckdb"))
         assert exc.value.code == 1
+
+
+class TestOpponent:
+    def test_opponent_happy_path(self, tmp_path, capsys):
+        db_path = str(tmp_path / "test.duckdb")
+        conn = init_db(db_path)
+        # Two games against opponent "fischer"
+        upsert_games(conn, [
+            SAMPLE_GAME,  # white: rathnakaragn (win), black: opponent (lose)
+            {**SAMPLE_GAME, "url": "u2",
+             "white": {"username": "fischer", "result": "win"},
+             "black": {"username": "rathnakaragn", "result": "lose"}},
+        ])
+        conn.close()
+        run_cli("opponent", "fischer", "--db", db_path)
+        out = capsys.readouterr().out
+        assert "fischer" in out
+        assert "W:" in out
+        assert "L:" in out
+        assert "D:" in out
+
+    def test_opponent_missing_db_exits(self, tmp_path):
+        with pytest.raises(SystemExit) as exc:
+            run_cli("opponent", "fischer", "--db", str(tmp_path / "missing.duckdb"))
+        assert exc.value.code == 1
