@@ -75,3 +75,43 @@ class TestSync:
             run_cli("sync", "rathnakaragn")
 
         assert (tmp_path / "data" / "rathnakaragn.duckdb").exists()
+
+
+class TestExport:
+    def _seed_db(self, db_path):
+        conn = init_db(db_path)
+        from src.store import upsert_games
+        upsert_games(conn, [SAMPLE_GAME])
+        conn.close()
+
+    def test_export_to_file(self, tmp_path):
+        db_path = str(tmp_path / "test.duckdb")
+        self._seed_db(db_path)
+        out = tmp_path / "out.pgn"
+        run_cli("export", "--db", db_path, "-o", str(out))
+        assert "Sicilian Defense" in out.read_text()
+
+    def test_export_to_stdout(self, tmp_path, capsys):
+        db_path = str(tmp_path / "test.duckdb")
+        self._seed_db(db_path)
+        run_cli("export", "--db", db_path)
+        assert "Sicilian Defense" in capsys.readouterr().out
+
+    def test_export_filter_time_class(self, tmp_path):
+        db_path = str(tmp_path / "test.duckdb")
+        conn = init_db(db_path)
+        from src.store import upsert_games
+        upsert_games(conn, [
+            SAMPLE_GAME,
+            {**SAMPLE_GAME, "url": "u2", "time_class": "blitz"},
+        ])
+        conn.close()
+        out = tmp_path / "rapid.pgn"
+        run_cli("export", "--db", db_path, "--time-class", "blitz", "-o", str(out))
+        content = out.read_text()
+        assert content.count("Sicilian Defense") == 1
+
+    def test_export_missing_db_exits(self, tmp_path):
+        with pytest.raises(SystemExit) as exc:
+            run_cli("export", "--db", str(tmp_path / "missing.duckdb"))
+        assert exc.value.code == 1
