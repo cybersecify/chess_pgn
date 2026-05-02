@@ -164,6 +164,32 @@ def cmd_stats(args: argparse.Namespace) -> None:
                 print(f"  {opening}: {cnt}")
         print(f"\nCurrent win streak : {result['current_streak']}")
         print(f"Longest win streak : {result['longest_streak']}")
+
+        if result["trend"]:
+            print("\nTrend (this month vs last):")
+            for tc, months in sorted(result["trend"].items()):
+                parts = []
+                for ym in sorted(months):
+                    d = months[ym]
+                    parts.append(f"{ym}: {d['win_pct']}% ({d['games']}g)")
+                print(f"  {tc:10s}  " + "  →  ".join(parts))
+
+        if result["time_of_day"]:
+            print("\nBy time of day (UTC):")
+            for period in ["morning", "afternoon", "evening", "night"]:
+                if period not in result["time_of_day"]:
+                    continue
+                counts = result["time_of_day"][period]
+                total_p = sum(counts.values())
+                pct = counts["win"] / total_p * 100 if total_p else 0
+                print(f"  {period:12s}  W:{counts['win']}  L:{counts['lose']}  "
+                      f"D:{counts['draw']}  ({pct:.0f}%)")
+
+        if result["game_phase_losses"]:
+            print("\nLosses by game phase:")
+            for phase in ["opening", "middlegame", "endgame"]:
+                cnt = result["game_phase_losses"].get(phase, 0)
+                print(f"  {phase:12s}  {cnt}")
     finally:
         conn.close()
 

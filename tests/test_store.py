@@ -265,6 +265,36 @@ class TestStats:
         openings = [o for o, _ in result["top_openings"]]
         assert openings[0] == "Sicilian Defense"
 
+    def test_trend_has_current_month(self, conn):
+        import time as _time
+        t = _time.gmtime()
+        # Use current timestamp so it falls in this month
+        now_ts = int(_time.time())
+        upsert_games(conn, [
+            make_game(url="u_now", end_time=now_ts,
+                      white={"username": "rathnakaragn", "result": "win"},
+                      black={"username": "opp", "result": "lose"}),
+        ])
+        result = stats(conn, "rathnakaragn")
+        current_ym = f"{t.tm_year}{t.tm_mon:02d}"
+        assert "trend" in result
+        # At least one format should have current month data
+        has_current = any(
+            current_ym in months
+            for months in result["trend"].values()
+        )
+        assert has_current
+
+    def test_time_of_day_keys(self, conn):
+        result = stats(conn, "rathnakaragn")
+        assert "time_of_day" in result
+        assert isinstance(result["time_of_day"], dict)
+
+    def test_game_phase_losses_keys(self, conn):
+        result = stats(conn, "rathnakaragn")
+        assert "game_phase_losses" in result
+        assert isinstance(result["game_phase_losses"], dict)
+
 
 class TestMigrateDb:
     def test_adds_missing_columns_to_old_schema(self):

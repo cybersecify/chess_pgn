@@ -285,8 +285,8 @@ def stats(conn: duckdb.DuckDBPyConnection, username: str, time_class: str | None
 
     streak = 0
     longest_streak = 0
-    for (result,) in game_results:
-        if result == "win":
+    for (game_result,) in game_results:
+        if game_result == "win":
             streak += 1
             if streak > longest_streak:
                 longest_streak = streak
@@ -294,12 +294,88 @@ def stats(conn: duckdb.DuckDBPyConnection, username: str, time_class: str | None
             streak = 0
     current_streak = streak
 
+    # Trend: current month vs previous month win% per time class
+    t = time.gmtime()
+    current_ym = f"{t.tm_year}{t.tm_mon:02d}"
+    prev_dt = datetime.datetime(t.tm_year, t.tm_mon, 1,
+                                tzinfo=datetime.timezone.utc) - datetime.timedelta(days=1)
+    prev_ym = f"{prev_dt.year}{prev_dt.month:02d}"
+
+    trend_rows = conn.execute(f"""
+        SELECT time_class,
+               strftime(to_timestamp(end_time), '%Y%m') AS ym,
+               COUNT(*) AS games,
+               SUM(CASE WHEN white = ? THEN CASE WHEN white_result = 'win' THEN 1 ELSE 0 END
+                        ELSE CASE WHEN black_result = 'win' THEN 1 ELSE 0 END END) AS wins
+        FROM games
+        WHERE (white = ? OR black = ?) {tc_filter}
+          AND strftime(to_timestamp(end_time), '%Y%m') IN (?, ?)
+          AND end_time IS NOT NULL
+        GROUP BY time_class, ym
+    """, [username, username, username] + tc_params + [current_ym, prev_ym]).fetchall()
+
+    trend: dict = {}
+    for tc_name, ym, games_cnt, wins_count in trend_rows:
+        tc_name = tc_name or "unknown"
+        if tc_name not in trend:
+            trend[tc_name] = {}
+        pct = round(wins_count / games_cnt * 100, 1) if games_cnt else 0.0
+        trend[tc_name][ym] = {"games": games_cnt, "win_pct": pct}
+
+    # Time of day (UTC hours)
+    tod_rows = conn.execute(f"""
+        SELECT
+            CASE
+                WHEN hour(to_timestamp(end_time)) BETWEEN 6 AND 11 THEN 'morning'
+                WHEN hour(to_timestamp(end_time)) BETWEEN 12 AND 17 THEN 'afternoon'
+                WHEN hour(to_timestamp(end_time)) BETWEEN 18 AND 23 THEN 'evening'
+                ELSE 'night'
+            END AS period,
+            CASE WHEN white = ? THEN white_result ELSE black_result END AS outcome,
+            COUNT(*) AS cnt
+        FROM games
+        WHERE (white = ? OR black = ?) {tc_filter} AND end_time IS NOT NULL
+        GROUP BY period, outcome
+    """, [username, username, username] + tc_params).fetchall()
+
+    time_of_day: dict = {}
+    for period, outcome, cnt in tod_rows:
+        if period not in time_of_day:
+            time_of_day[period] = {"win": 0, "lose": 0, "draw": 0}
+        key = "win" if outcome == "win" else ("lose" if outcome in _LOSS_RESULTS else "draw")
+        time_of_day[period][key] += cnt
+
+    # Game phase losses (requires move_count column from migration)
+    phase_rows = conn.execute(f"""
+        SELECT
+            CASE
+                WHEN move_count <= 15 THEN 'opening'
+                WHEN move_count <= 40 THEN 'middlegame'
+                ELSE 'endgame'
+            END AS phase,
+            COUNT(*) AS cnt
+        FROM games
+        WHERE (white = ? OR black = ?) {tc_filter}
+          AND move_count IS NOT NULL
+          AND (
+              (white = ? AND white_result IN ('lose','checkmated','timeout','resigned','abandoned'))
+              OR
+              (black = ? AND black_result IN ('lose','checkmated','timeout','resigned','abandoned'))
+          )
+        GROUP BY phase
+    """, [username, username] + tc_params + [username, username]).fetchall()
+
+    game_phase_losses = {phase: cnt for phase, cnt in phase_rows}
+
     return {
         "total": total,
         "by_time_class": by_time_class,
         "top_openings": top_openings,
         "current_streak": current_streak,
         "longest_streak": longest_streak,
+        "trend": trend,
+        "time_of_day": time_of_day,
+        "game_phase_losses": game_phase_losses,
     }
 
 
