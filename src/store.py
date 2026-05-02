@@ -120,7 +120,7 @@ def query_games(
 
     where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
-    if n:
+    if n is not None:
         sql = f"""
             SELECT * FROM (
                 SELECT * FROM games {where} ORDER BY end_time DESC LIMIT ?
