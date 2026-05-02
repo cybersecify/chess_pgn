@@ -315,7 +315,7 @@ def rating_history(conn: duckdb.DuckDBPyConnection, username: str) -> dict:
     """, [username] * 4).fetchall()
     if not rows:
         return {}
-    current = {tc: elo for tc, elo in rows}
+    current = {(tc or "unknown"): elo for tc, elo in rows}
 
     t = time.gmtime()
     month_start = int(datetime.datetime(t.tm_year, t.tm_mon, 1,
@@ -324,11 +324,11 @@ def rating_history(conn: duckdb.DuckDBPyConnection, username: str) -> dict:
         SELECT time_class,
                CASE WHEN white = ? THEN white_elo ELSE black_elo END AS elo
         FROM games
-        WHERE (white = ? OR black = ?) AND end_time >= ?
+        WHERE (white = ? OR black = ?) AND end_time >= ? AND end_time IS NOT NULL
           AND CASE WHEN white = ? THEN white_elo ELSE black_elo END IS NOT NULL
         QUALIFY ROW_NUMBER() OVER (PARTITION BY time_class ORDER BY end_time ASC) = 1
     """, [username, username, username, month_start, username]).fetchall()
-    first_of_month = {tc: elo for tc, elo in first_rows}
+    first_of_month = {(tc or "unknown"): elo for tc, elo in first_rows}
 
     result = {}
     for tc, elo in current.items():
