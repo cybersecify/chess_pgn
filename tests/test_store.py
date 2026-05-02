@@ -8,7 +8,19 @@ from src.store import init_db, upsert_games, get_synced_archives, mark_archive_s
 def make_game(**overrides):
     g = {
         "url": "https://chess.com/game/1",
-        "pgn": '[ECO "B20"]\n[Opening "Sicilian Defense"]\n\n1. e4 c5 *',
+        "pgn": (
+            '[ECO "B20"]\n'
+            '[ECOUrl "https://www.chess.com/openings/Sicilian-Defense"]\n'
+            '[WhiteElo "1200"]\n'
+            '[BlackElo "1100"]\n'
+            '[UTCDate "2024.01.01"]\n'
+            '[StartTime "00:00:00"]\n'
+            '[EndDate "2024.01.01"]\n'
+            '[EndTime "00:15:00"]\n'
+            '[Termination "rathnakaragn won by resignation"]\n'
+            '\n'
+            '1. e4 c5 2. Nf3 *'
+        ),
         "time_class": "rapid",
         "time_control": "600",
         "end_time": 1704067200,  # 2024-01-01 00:00:00 UTC
@@ -46,7 +58,7 @@ class TestUpsertGames:
         assert row[0] == "https://chess.com/game/1"
         assert row[1] == "rathnakaragn"
         assert row[2] == "B20"
-        assert row[3] == "Sicilian Defense"
+        assert row[3] == "Sicilian Defense"  # parsed from ECOUrl slug
 
     def test_deduplicates_on_url(self, conn):
         upsert_games(conn, [make_game()])
@@ -76,6 +88,20 @@ class TestUpsertGames:
         row = conn.execute("SELECT eco, opening FROM games").fetchone()
         assert row[0] is None
         assert row[1] is None
+
+    def test_eco_url_parsed_as_opening(self, conn):
+        upsert_games(conn, [make_game(
+            pgn='[ECO "C41"]\n[ECOUrl "https://www.chess.com/openings/Philidor-Defense"]\n\n1. e4 e5 *'
+        )])
+        row = conn.execute("SELECT opening FROM games").fetchone()
+        assert row[0] == "Philidor Defense"
+
+    def test_opening_tag_fallback(self, conn):
+        upsert_games(conn, [make_game(
+            pgn='[ECO "B20"]\n[Opening "Sicilian Defense"]\n\n1. e4 c5 *'
+        )])
+        row = conn.execute("SELECT opening FROM games").fetchone()
+        assert row[0] == "Sicilian Defense"
 
 
 class TestArchiveTracking:
@@ -215,11 +241,11 @@ class TestStats:
     def test_top_openings(self, conn):
         upsert_games(conn, [
             make_game(url=f"u{i}",
-                      pgn='[Opening "Sicilian Defense"]\n\n1. e4 c5 *')
+                      pgn='[ECOUrl "https://www.chess.com/openings/Sicilian-Defense"]\n\n1. e4 c5 *')
             for i in range(3)
         ] + [
             make_game(url="u99",
-                      pgn='[Opening "Ruy Lopez"]\n\n1. e4 e5 *')
+                      pgn='[ECOUrl "https://www.chess.com/openings/Ruy-Lopez"]\n\n1. e4 e5 *')
         ])
         result = stats(conn, "rathnakaragn")
         openings = [o for o, _ in result["top_openings"]]
