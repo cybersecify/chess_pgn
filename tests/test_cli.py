@@ -102,14 +102,16 @@ class TestExport:
         conn = init_db(db_path)
         from src.store import upsert_games
         upsert_games(conn, [
-            SAMPLE_GAME,
-            {**SAMPLE_GAME, "url": "u2", "time_class": "blitz"},
+            SAMPLE_GAME,  # rapid, Opening "Sicilian Defense"
+            {**SAMPLE_GAME, "url": "u2", "time_class": "blitz",
+             "pgn": '[ECO "C60"]\n[Opening "Ruy Lopez"]\n\n1. e4 e5 2. Nf3 Nc6 3. Bb5 *'},
         ])
         conn.close()
-        out = tmp_path / "rapid.pgn"
+        out = tmp_path / "blitz.pgn"
         run_cli("export", "--db", db_path, "--time-class", "blitz", "-o", str(out))
         content = out.read_text()
-        assert content.count("Sicilian Defense") == 1
+        assert "Ruy Lopez" in content
+        assert "Sicilian Defense" not in content
 
     def test_export_missing_db_exits(self, tmp_path):
         with pytest.raises(SystemExit) as exc:
