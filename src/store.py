@@ -79,6 +79,36 @@ def _parse_duration_secs(pgn: str | None) -> int | None:
         return None
 
 
+_CLK_RE = re.compile(r'\[%clk (\d+:\d{2}:\d{2}(?:\.\d+)?)\]')
+
+
+def _parse_clock_times(pgn: str | None) -> tuple[int | None, int | None]:
+    if not pgn:
+        return None, None
+    tc = _parse_pgn_header(pgn, "TimeControl")
+    if not tc:
+        return None, None
+    tc_match = re.match(r'^(\d+)', tc)
+    if not tc_match:
+        return None, None
+    initial = int(tc_match.group(1))
+    clocks_raw = _CLK_RE.findall(pgn)
+    if not clocks_raw:
+        return None, None
+
+    def _to_secs(s: str) -> int:
+        h, m, sec = s.split(':')
+        return int(h) * 3600 + int(m) * 60 + int(float(sec))
+
+    clocks = [_to_secs(c) for c in clocks_raw]
+    white_last = clocks[0::2][-1] if clocks[0::2] else None
+    black_last = clocks[1::2][-1] if clocks[1::2] else None
+    return (
+        initial - white_last if white_last is not None else None,
+        initial - black_last if black_last is not None else None,
+    )
+
+
 def _migrate_db(conn: duckdb.DuckDBPyConnection) -> None:
     existing = {r[0] for r in conn.execute("DESCRIBE games").fetchall()}
     for col, typ in [
@@ -90,6 +120,8 @@ def _migrate_db(conn: duckdb.DuckDBPyConnection) -> None:
         ("color",              "TEXT"),
         ("opponent",           "TEXT"),
         ("user_result",        "TEXT"),
+        ("white_time_used_secs",  "INTEGER"),
+        ("black_time_used_secs",  "INTEGER"),
     ]:
         if col not in existing:
             conn.execute(f"ALTER TABLE games ADD COLUMN {col} {typ}")
@@ -121,7 +153,9 @@ def init_db(db_path: str) -> duckdb.DuckDBPyConnection:
             termination       TEXT,
             color             TEXT,
             opponent          TEXT,
-            user_result       TEXT
+            user_result       TEXT,
+            white_time_used_secs  INTEGER,
+            black_time_used_secs  INTEGER
         )
     """)
     conn.execute("""
@@ -165,6 +199,7 @@ def upsert_games(
         else:
             color = opponent = user_result = None
 
+        white_time_used, black_time_used = _parse_clock_times(pgn)
         rows.append((
             url,
             pgn,
@@ -187,12 +222,14 @@ def upsert_games(
             color,
             opponent,
             user_result,
+            white_time_used,
+            black_time_used,
         ))
     if not rows:
         return 0
     before = conn.execute("SELECT COUNT(*) FROM games").fetchone()[0]
     conn.executemany("""
-        INSERT INTO games VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO games VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (url) DO NOTHING
     """, rows)
     after = conn.execute("SELECT COUNT(*) FROM games").fetchone()[0]
@@ -216,7 +253,8 @@ def backfill_derived_columns(
     username: str | None = None,
 ) -> int:
     null_checks = """white_elo IS NULL OR black_elo IS NULL OR move_count IS NULL
-               OR game_duration_secs IS NULL OR termination IS NULL OR opening IS NULL"""
+               OR game_duration_secs IS NULL OR termination IS NULL OR opening IS NULL
+               OR (white_time_used_secs IS NULL AND strpos(pgn, '[%clk ') > 0)"""
     if username:
         null_checks += " OR color IS NULL OR opponent IS NULL OR user_result IS NULL"
 
@@ -229,6 +267,7 @@ def backfill_derived_columns(
 
     updates = []
     for url, pgn, white_user, black_user, white_res, black_res in rows:
+        white_time_used, black_time_used = _parse_clock_times(pgn)
         base = (
             _parse_elo(pgn, "White"),
             _parse_elo(pgn, "Black"),
@@ -236,6 +275,8 @@ def backfill_derived_columns(
             _parse_duration_secs(pgn),
             _parse_pgn_header(pgn, "Termination"),
             _parse_opening(pgn),
+            white_time_used,
+            black_time_used,
         )
         if username:
             color, opp, user_result = _derive_player_fields(
@@ -250,6 +291,7 @@ def backfill_derived_columns(
             UPDATE games SET
                 white_elo = ?, black_elo = ?, move_count = ?,
                 game_duration_secs = ?, termination = ?, opening = ?,
+                white_time_used_secs = ?, black_time_used_secs = ?,
                 color = ?, opponent = ?, user_result = ?
             WHERE url = ?
         """, updates)
@@ -257,7 +299,8 @@ def backfill_derived_columns(
         conn.executemany("""
             UPDATE games SET
                 white_elo = ?, black_elo = ?, move_count = ?,
-                game_duration_secs = ?, termination = ?, opening = ?
+                game_duration_secs = ?, termination = ?, opening = ?,
+                white_time_used_secs = ?, black_time_used_secs = ?
             WHERE url = ?
         """, updates)
     return len(updates)

@@ -21,8 +21,9 @@ def make_game(**overrides):
             '[EndDate "2024.01.01"]\n'
             '[EndTime "00:15:00"]\n'
             '[Termination "rathnakaragn won by resignation"]\n'
+            '[TimeControl "600"]\n'
             '\n'
-            '1. e4 c5 2. Nf3 *'
+            '1. e4 {[%clk 0:09:50]} 1... c5 {[%clk 0:09:40]} 2. Nf3 {[%clk 0:09:30]} *'
         ),
         "time_class": "rapid",
         "time_control": "600",
@@ -109,13 +110,16 @@ class TestUpsertGames:
     def test_new_columns_populated(self, conn):
         upsert_games(conn, [make_game()])
         row = conn.execute(
-            "SELECT white_elo, black_elo, move_count, game_duration_secs, termination FROM games"
+            "SELECT white_elo, black_elo, move_count, game_duration_secs, termination,"
+            "       white_time_used_secs, black_time_used_secs FROM games"
         ).fetchone()
         assert row[0] == 1200   # white_elo
         assert row[1] == 1100   # black_elo
         assert row[2] == 2      # move_count: last move number is "2. Nf3"
         assert row[3] == 900    # game_duration_secs: 00:00:00 to 00:15:00 = 900s
         assert row[4] == "rathnakaragn won by resignation"
+        assert row[5] == 30     # white used 600 - 570 = 30s
+        assert row[6] == 20     # black used 600 - 580 = 20s
 
     def test_derived_columns_populated_when_username_given(self, conn):
         upsert_games(conn, [make_game()], username="rathnakaragn")
@@ -154,6 +158,65 @@ class TestUpsertGames:
         )], username="rathnakaragn")
         row = conn.execute("SELECT user_result FROM games").fetchone()
         assert row[0] == "draw"
+
+    def test_clock_times_null_when_no_clk_annotations(self, conn):
+        upsert_games(conn, [make_game(
+            url="https://chess.com/game/2",
+            pgn=(
+                '[ECO "B20"]\n'
+                '[WhiteElo "1200"]\n'
+                '[BlackElo "1100"]\n'
+                '[UTCDate "2024.01.01"]\n'
+                '[StartTime "00:00:00"]\n'
+                '[EndDate "2024.01.01"]\n'
+                '[EndTime "00:15:00"]\n'
+                '[Termination "Draw"]\n'
+                '[TimeControl "600"]\n'
+                '\n'
+                '1. e4 c5 2. Nf3 *'
+            ),
+        )])
+        row = conn.execute(
+            "SELECT white_time_used_secs, black_time_used_secs FROM games"
+        ).fetchone()
+        assert row[0] is None
+        assert row[1] is None
+
+    def test_clock_times_null_when_no_time_control_header(self, conn):
+        upsert_games(conn, [make_game(
+            url="https://chess.com/game/3",
+            pgn=(
+                '[ECO "B20"]\n'
+                '[WhiteElo "1200"]\n'
+                '[BlackElo "1100"]\n'
+                '\n'
+                '1. e4 {[%clk 0:09:50]} 1... c5 {[%clk 0:09:40]} *'
+            ),
+        )])
+        row = conn.execute(
+            "SELECT white_time_used_secs, black_time_used_secs FROM games"
+        ).fetchone()
+        assert row[0] is None
+        assert row[1] is None
+
+    def test_clock_times_with_increment_time_control(self, conn):
+        # TimeControl "60+5" → initial = 60s (base only, ignore increment)
+        upsert_games(conn, [make_game(
+            url="https://chess.com/game/4",
+            pgn=(
+                '[ECO "B20"]\n'
+                '[WhiteElo "1200"]\n'
+                '[BlackElo "1100"]\n'
+                '[TimeControl "60+5"]\n'
+                '\n'
+                '1. e4 {[%clk 0:00:55]} 1... c5 {[%clk 0:00:58]} *'
+            ),
+        )])
+        row = conn.execute(
+            "SELECT white_time_used_secs, black_time_used_secs FROM games"
+        ).fetchone()
+        assert row[0] == 5   # 60 - 55
+        assert row[1] == 2   # 60 - 58
 
 
 class TestArchiveTracking:
@@ -370,6 +433,8 @@ class TestMigrateDb:
         assert "color" in cols
         assert "opponent" in cols
         assert "user_result" in cols
+        assert "white_time_used_secs" in cols
+        assert "black_time_used_secs" in cols
 
     def test_idempotent_on_full_schema(self):
         import duckdb
@@ -385,7 +450,7 @@ class TestMigrateDb:
         """)
         _migrate_db(conn)  # should not raise
         cols = {r[0] for r in conn.execute("DESCRIBE games").fetchall()}
-        assert len(cols) == 21
+        assert len(cols) == 23
 
 
 
