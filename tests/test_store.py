@@ -285,15 +285,30 @@ class TestStats:
         )
         assert has_current
 
-    def test_time_of_day_keys(self, conn):
+    def test_time_of_day_counts_wins(self, conn):
+        # end_time 1704067200 = 2024-01-01 00:00:00 UTC => hour=0 => 'night'
+        upsert_games(conn, [make_game(
+            url="u_night",
+            end_time=1704067200,
+            white={"username": "rathnakaragn", "result": "win"},
+            black={"username": "opp", "result": "lose"},
+        )])
         result = stats(conn, "rathnakaragn")
         assert "time_of_day" in result
         assert isinstance(result["time_of_day"], dict)
+        assert result["time_of_day"]["night"]["win"] == 1
 
-    def test_game_phase_losses_keys(self, conn):
+    def test_game_phase_losses_opening(self, conn):
+        # make_game has move_count=2 (from "2. Nf3" in PGN) => opening phase (<=15)
+        upsert_games(conn, [make_game(
+            url="u_loss",
+            white={"username": "rathnakaragn", "result": "lose"},
+            black={"username": "opp", "result": "win"},
+        )])
         result = stats(conn, "rathnakaragn")
         assert "game_phase_losses" in result
         assert isinstance(result["game_phase_losses"], dict)
+        assert result["game_phase_losses"].get("opening", 0) == 1
 
 
 class TestMigrateDb:
