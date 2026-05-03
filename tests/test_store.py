@@ -117,6 +117,44 @@ class TestUpsertGames:
         assert row[3] == 900    # game_duration_secs: 00:00:00 to 00:15:00 = 900s
         assert row[4] == "rathnakaragn won by resignation"
 
+    def test_derived_columns_populated_when_username_given(self, conn):
+        upsert_games(conn, [make_game()], username="rathnakaragn")
+        row = conn.execute(
+            "SELECT color, opponent, user_result FROM games"
+        ).fetchone()
+        assert row[0] == "white"       # rathnakaragn played white
+        assert row[1] == "opponent"    # the other player
+        assert row[2] == "win"         # rathnakaragn won
+
+    def test_derived_columns_null_when_no_username(self, conn):
+        upsert_games(conn, [make_game()])  # no username
+        row = conn.execute(
+            "SELECT color, opponent, user_result FROM games"
+        ).fetchone()
+        assert row[0] is None
+        assert row[1] is None
+        assert row[2] is None
+
+    def test_derived_columns_black_side(self, conn):
+        upsert_games(conn, [make_game(
+            white={"username": "other", "result": "win"},
+            black={"username": "rathnakaragn", "result": "lose"},
+        )], username="rathnakaragn")
+        row = conn.execute(
+            "SELECT color, opponent, user_result FROM games"
+        ).fetchone()
+        assert row[0] == "black"
+        assert row[1] == "other"
+        assert row[2] == "lose"
+
+    def test_derived_columns_draw(self, conn):
+        upsert_games(conn, [make_game(
+            white={"username": "rathnakaragn", "result": "stalemate"},
+            black={"username": "opp", "result": "stalemate"},
+        )], username="rathnakaragn")
+        row = conn.execute("SELECT user_result FROM games").fetchone()
+        assert row[0] == "draw"
+
 
 class TestArchiveTracking:
     def test_empty_initially(self, conn):
@@ -346,47 +384,6 @@ class TestMigrateDb:
         cols = {r[0] for r in conn.execute("DESCRIBE games").fetchall()}
         assert len(cols) == 21
 
-
-class TestUpsertGames:
-    # ... existing tests are above ...
-
-    def test_derived_columns_populated_when_username_given(self, conn):
-        upsert_games(conn, [make_game()], username="rathnakaragn")
-        row = conn.execute(
-            "SELECT color, opponent, user_result FROM games"
-        ).fetchone()
-        assert row[0] == "white"       # rathnakaragn played white
-        assert row[1] == "opponent"    # the other player
-        assert row[2] == "win"         # rathnakaragn won
-
-    def test_derived_columns_null_when_no_username(self, conn):
-        upsert_games(conn, [make_game()])  # no username
-        row = conn.execute(
-            "SELECT color, opponent, user_result FROM games"
-        ).fetchone()
-        assert row[0] is None
-        assert row[1] is None
-        assert row[2] is None
-
-    def test_derived_columns_black_side(self, conn):
-        upsert_games(conn, [make_game(
-            white={"username": "other", "result": "win"},
-            black={"username": "rathnakaragn", "result": "lose"},
-        )], username="rathnakaragn")
-        row = conn.execute(
-            "SELECT color, opponent, user_result FROM games"
-        ).fetchone()
-        assert row[0] == "black"
-        assert row[1] == "other"
-        assert row[2] == "lose"
-
-    def test_derived_columns_draw(self, conn):
-        upsert_games(conn, [make_game(
-            white={"username": "rathnakaragn", "result": "stalemate"},
-            black={"username": "opp", "result": "stalemate"},
-        )], username="rathnakaragn")
-        row = conn.execute("SELECT user_result FROM games").fetchone()
-        assert row[0] == "draw"
 
 
 class TestBackfill:
