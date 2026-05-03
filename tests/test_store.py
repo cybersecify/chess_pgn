@@ -367,6 +367,9 @@ class TestMigrateDb:
         assert "move_count" in cols
         assert "game_duration_secs" in cols
         assert "termination" in cols
+        assert "color" in cols
+        assert "opponent" in cols
+        assert "user_result" in cols
 
     def test_idempotent_on_full_schema(self):
         import duckdb
@@ -409,6 +412,19 @@ class TestBackfill:
     def test_returns_zero_when_no_games(self, conn):
         updated = backfill_derived_columns(conn)
         assert updated == 0
+
+    def test_no_username_backfill_preserves_existing_derived_columns(self, conn):
+        upsert_games(conn, [make_game()], username="rathnakaragn")
+        # Null out a non-derived column to trigger backfill
+        conn.execute("UPDATE games SET white_elo = NULL")
+        # Call backfill WITHOUT username — should not touch derived columns
+        updated = backfill_derived_columns(conn)
+        assert updated == 1
+        row = conn.execute("SELECT white_elo, color, opponent, user_result FROM games").fetchone()
+        assert row[0] == 1200       # white_elo restored
+        assert row[1] == "white"    # color NOT wiped
+        assert row[2] == "opponent" # opponent NOT wiped
+        assert row[3] == "win"      # user_result NOT wiped
 
 
 class TestRatingHistory:

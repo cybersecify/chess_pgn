@@ -12,6 +12,25 @@ import duckdb
 _LOSS_RESULTS = {"lose", "checkmated", "timeout", "resigned", "abandoned"}
 
 
+def _derive_player_fields(
+    username: str,
+    white_user: str | None,
+    black_user: str | None,
+    white_res: str | None,
+    black_res: str | None,
+) -> tuple[str, str | None, str]:
+    color = "white" if white_user == username else "black"
+    opponent = black_user if color == "white" else white_user
+    raw = white_res if color == "white" else black_res
+    if raw == "win":
+        user_result = "win"
+    elif raw in _LOSS_RESULTS:
+        user_result = "lose"
+    else:
+        user_result = "draw"
+    return color, opponent, user_result
+
+
 def _parse_pgn_header(pgn: str | None, tag: str) -> str | None:
     m = re.search(rf'\[{tag} "([^"]*)"\]', pgn or "")
     return m.group(1) if m else None
@@ -120,6 +139,12 @@ def upsert_games(
     games: list[dict],
     username: str | None = None,
 ) -> int:
+    """Insert new games; skip duplicates (ON CONFLICT DO NOTHING).
+
+    When username is given, also populates color/opponent/user_result.
+    Already-stored games are not updated — call backfill_derived_columns
+    to fill derived columns for existing rows.
+    """
     if not games:
         return 0
     rows = []
@@ -134,15 +159,9 @@ def upsert_games(
         black_res  = g.get("black", {}).get("result")
 
         if username:
-            color = "white" if white_user == username else "black"
-            opponent = black_user if color == "white" else white_user
-            raw_result = white_res if color == "white" else black_res
-            if raw_result == "win":
-                user_result = "win"
-            elif raw_result in _LOSS_RESULTS:
-                user_result = "lose"
-            else:
-                user_result = "draw"
+            color, opponent, user_result = _derive_player_fields(
+                username, white_user, black_user, white_res, black_res
+            )
         else:
             color = opponent = user_result = None
 
@@ -210,39 +229,37 @@ def backfill_derived_columns(
 
     updates = []
     for url, pgn, white_user, black_user, white_res, black_res in rows:
-        if username:
-            color = "white" if white_user == username else "black"
-            opp = black_user if color == "white" else white_user
-            raw_result = white_res if color == "white" else black_res
-            if raw_result == "win":
-                user_result = "win"
-            elif raw_result in _LOSS_RESULTS:
-                user_result = "lose"
-            else:
-                user_result = "draw"
-        else:
-            color = opp = user_result = None
-
-        updates.append((
+        base = (
             _parse_elo(pgn, "White"),
             _parse_elo(pgn, "Black"),
             _parse_move_count(pgn),
             _parse_duration_secs(pgn),
             _parse_pgn_header(pgn, "Termination"),
             _parse_opening(pgn),
-            color,
-            opp,
-            user_result,
-            url,
-        ))
+        )
+        if username:
+            color, opp, user_result = _derive_player_fields(
+                username, white_user, black_user, white_res, black_res
+            )
+            updates.append(base + (color, opp, user_result, url))
+        else:
+            updates.append(base + (url,))
 
-    conn.executemany("""
-        UPDATE games SET
-            white_elo = ?, black_elo = ?, move_count = ?,
-            game_duration_secs = ?, termination = ?, opening = ?,
-            color = ?, opponent = ?, user_result = ?
-        WHERE url = ?
-    """, updates)
+    if username:
+        conn.executemany("""
+            UPDATE games SET
+                white_elo = ?, black_elo = ?, move_count = ?,
+                game_duration_secs = ?, termination = ?, opening = ?,
+                color = ?, opponent = ?, user_result = ?
+            WHERE url = ?
+        """, updates)
+    else:
+        conn.executemany("""
+            UPDATE games SET
+                white_elo = ?, black_elo = ?, move_count = ?,
+                game_duration_secs = ?, termination = ?, opening = ?
+            WHERE url = ?
+        """, updates)
     return len(updates)
 
 
