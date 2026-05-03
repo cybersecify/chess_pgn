@@ -92,7 +92,7 @@ def cmd_sync(args: argparse.Namespace) -> None:
             ym = _archive_ym(url)
             data = _api_get(url)
             games = data.get("games", [])
-            new = store.upsert_games(conn, games)
+            new = store.upsert_games(conn, games, username=username)
             total_new += new
             if ym != current_ym:
                 store.mark_archive_synced(conn, url)
@@ -200,7 +200,7 @@ def cmd_backfill(args: argparse.Namespace) -> None:
     conn = _open_existing_db(db_path)
     try:
         print("Backfilling derived columns from stored PGNs...", file=sys.stderr)
-        updated = store.backfill_derived_columns(conn)
+        updated = store.backfill_derived_columns(conn, username=username)
         print(f"Done. {updated} rows updated.", file=sys.stderr)
     finally:
         conn.close()

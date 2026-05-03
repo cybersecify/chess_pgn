@@ -191,3 +191,33 @@ class TestOpponent:
         with pytest.raises(SystemExit) as exc:
             run_cli("opponent", "fischer", "--db", str(tmp_path / "missing.duckdb"))
         assert exc.value.code == 1
+
+
+class TestDerivedColumns:
+    def test_sync_populates_derived_columns(self, tmp_path):
+        from unittest.mock import patch
+        db_path = str(tmp_path / "test.duckdb")
+        games = [
+            {
+                "url": "https://chess.com/game/1",
+                "pgn": '[ECO "B20"]\n[ECOUrl "https://www.chess.com/openings/Sicilian-Defense"]\n[WhiteElo "1200"]\n[BlackElo "1100"]\n[UTCDate "2024.01.01"]\n[StartTime "00:00:00"]\n[EndDate "2024.01.01"]\n[EndTime "00:15:00"]\n[Termination "rathnakaragn won by resignation"]\n\n1. e4 c5 2. Nf3 *',
+                "time_class": "rapid", "time_control": "600", "end_time": 1704067200,
+                "white": {"username": "rathnakaragn", "result": "win"},
+                "black": {"username": "fischer", "result": "lose"},
+                "rated": True, "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            }
+        ]
+        with patch("src.cli._api_get") as mock_api:
+            mock_api.side_effect = [
+                {"archives": ["https://api.chess.com/pub/player/rathnakaragn/games/2024/01"]},
+                {"games": games},
+            ]
+            run_cli("sync", "rathnakaragn", "--db", db_path)
+
+        import duckdb
+        conn = duckdb.connect(db_path, read_only=True)
+        row = conn.execute("SELECT color, opponent, user_result FROM games").fetchone()
+        conn.close()
+        assert row[0] == "white"
+        assert row[1] == "fischer"
+        assert row[2] == "win"
