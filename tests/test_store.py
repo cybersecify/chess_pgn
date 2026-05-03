@@ -344,20 +344,64 @@ class TestMigrateDb:
         """)
         _migrate_db(conn)  # should not raise
         cols = {r[0] for r in conn.execute("DESCRIBE games").fetchall()}
-        assert len(cols) == 18
+        assert len(cols) == 21
+
+
+class TestUpsertGames:
+    # ... existing tests are above ...
+
+    def test_derived_columns_populated_when_username_given(self, conn):
+        upsert_games(conn, [make_game()], username="rathnakaragn")
+        row = conn.execute(
+            "SELECT color, opponent, user_result FROM games"
+        ).fetchone()
+        assert row[0] == "white"       # rathnakaragn played white
+        assert row[1] == "opponent"    # the other player
+        assert row[2] == "win"         # rathnakaragn won
+
+    def test_derived_columns_null_when_no_username(self, conn):
+        upsert_games(conn, [make_game()])  # no username
+        row = conn.execute(
+            "SELECT color, opponent, user_result FROM games"
+        ).fetchone()
+        assert row[0] is None
+        assert row[1] is None
+        assert row[2] is None
+
+    def test_derived_columns_black_side(self, conn):
+        upsert_games(conn, [make_game(
+            white={"username": "other", "result": "win"},
+            black={"username": "rathnakaragn", "result": "lose"},
+        )], username="rathnakaragn")
+        row = conn.execute(
+            "SELECT color, opponent, user_result FROM games"
+        ).fetchone()
+        assert row[0] == "black"
+        assert row[1] == "other"
+        assert row[2] == "lose"
+
+    def test_derived_columns_draw(self, conn):
+        upsert_games(conn, [make_game(
+            white={"username": "rathnakaragn", "result": "stalemate"},
+            black={"username": "opp", "result": "stalemate"},
+        )], username="rathnakaragn")
+        row = conn.execute("SELECT user_result FROM games").fetchone()
+        assert row[0] == "draw"
 
 
 class TestBackfill:
     def test_backfills_nulled_columns(self, conn):
-        upsert_games(conn, [make_game()])
-        # Simulate old rows with NULLs in derived columns
-        conn.execute("UPDATE games SET white_elo = NULL, move_count = NULL, termination = NULL")
-        updated = backfill_derived_columns(conn)
+        upsert_games(conn, [make_game()], username="rathnakaragn")
+        conn.execute("UPDATE games SET white_elo = NULL, move_count = NULL, termination = NULL, color = NULL")
+        updated = backfill_derived_columns(conn, username="rathnakaragn")
         assert updated == 1
-        row = conn.execute("SELECT white_elo, move_count, termination FROM games").fetchone()
+        row = conn.execute("SELECT white_elo, move_count, termination, color, opponent, user_result FROM games").fetchone()
         assert row[0] == 1200
         assert row[1] == 2
         assert row[2] == "rathnakaragn won by resignation"
+        assert row[3] == "white"
+        assert row[4] == "opponent"
+        assert row[5] == "win"
 
     def test_skips_complete_rows(self, conn):
         upsert_games(conn, [make_game()])

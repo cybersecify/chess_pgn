@@ -68,6 +68,9 @@ def _migrate_db(conn: duckdb.DuckDBPyConnection) -> None:
         ("move_count",         "INTEGER"),
         ("game_duration_secs", "INTEGER"),
         ("termination",        "TEXT"),
+        ("color",              "TEXT"),
+        ("opponent",           "TEXT"),
+        ("user_result",        "TEXT"),
     ]:
         if col not in existing:
             conn.execute(f"ALTER TABLE games ADD COLUMN {col} {typ}")
@@ -96,7 +99,10 @@ def init_db(db_path: str) -> duckdb.DuckDBPyConnection:
             black_elo         INTEGER,
             move_count        INTEGER,
             game_duration_secs INTEGER,
-            termination       TEXT
+            termination       TEXT,
+            color             TEXT,
+            opponent          TEXT,
+            user_result       TEXT
         )
     """)
     conn.execute("""
@@ -109,7 +115,11 @@ def init_db(db_path: str) -> duckdb.DuckDBPyConnection:
     return conn
 
 
-def upsert_games(conn: duckdb.DuckDBPyConnection, games: list[dict]) -> int:
+def upsert_games(
+    conn: duckdb.DuckDBPyConnection,
+    games: list[dict],
+    username: str | None = None,
+) -> int:
     if not games:
         return 0
     rows = []
@@ -118,16 +128,34 @@ def upsert_games(conn: duckdb.DuckDBPyConnection, games: list[dict]) -> int:
         if not url:
             continue
         pgn = g.get("pgn", "")
+        white_user = g.get("white", {}).get("username")
+        black_user = g.get("black", {}).get("username")
+        white_res  = g.get("white", {}).get("result")
+        black_res  = g.get("black", {}).get("result")
+
+        if username:
+            color = "white" if white_user == username else "black"
+            opponent = black_user if color == "white" else white_user
+            raw_result = white_res if color == "white" else black_res
+            if raw_result == "win":
+                user_result = "win"
+            elif raw_result in _LOSS_RESULTS:
+                user_result = "lose"
+            else:
+                user_result = "draw"
+        else:
+            color = opponent = user_result = None
+
         rows.append((
             url,
             pgn,
             g.get("time_class"),
             g.get("time_control"),
             g.get("end_time"),
-            g.get("white", {}).get("username"),
-            g.get("black", {}).get("username"),
-            g.get("white", {}).get("result"),
-            g.get("black", {}).get("result"),
+            white_user,
+            black_user,
+            white_res,
+            black_res,
             g.get("rated"),
             g.get("fen"),
             _parse_pgn_header(pgn, "ECO"),
@@ -137,12 +165,15 @@ def upsert_games(conn: duckdb.DuckDBPyConnection, games: list[dict]) -> int:
             _parse_move_count(pgn),
             _parse_duration_secs(pgn),
             _parse_pgn_header(pgn, "Termination"),
+            color,
+            opponent,
+            user_result,
         ))
     if not rows:
         return 0
     before = conn.execute("SELECT COUNT(*) FROM games").fetchone()[0]
     conn.executemany("""
-        INSERT INTO games VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO games VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (url) DO NOTHING
     """, rows)
     after = conn.execute("SELECT COUNT(*) FROM games").fetchone()[0]
@@ -161,31 +192,55 @@ def mark_archive_synced(conn: duckdb.DuckDBPyConnection, archive_url: str) -> No
     )
 
 
-def backfill_derived_columns(conn: duckdb.DuckDBPyConnection) -> int:
-    rows = conn.execute("""
-        SELECT url, pgn FROM games
-        WHERE pgn IS NOT NULL
-          AND (white_elo IS NULL OR black_elo IS NULL OR move_count IS NULL
-               OR game_duration_secs IS NULL OR termination IS NULL OR opening IS NULL)
+def backfill_derived_columns(
+    conn: duckdb.DuckDBPyConnection,
+    username: str | None = None,
+) -> int:
+    null_checks = """white_elo IS NULL OR black_elo IS NULL OR move_count IS NULL
+               OR game_duration_secs IS NULL OR termination IS NULL OR opening IS NULL"""
+    if username:
+        null_checks += " OR color IS NULL OR opponent IS NULL OR user_result IS NULL"
+
+    rows = conn.execute(f"""
+        SELECT url, pgn, white, black, white_result, black_result FROM games
+        WHERE pgn IS NOT NULL AND ({null_checks})
     """).fetchall()
     if not rows:
         return 0
-    updates = [
-        (
+
+    updates = []
+    for url, pgn, white_user, black_user, white_res, black_res in rows:
+        if username:
+            color = "white" if white_user == username else "black"
+            opp = black_user if color == "white" else white_user
+            raw_result = white_res if color == "white" else black_res
+            if raw_result == "win":
+                user_result = "win"
+            elif raw_result in _LOSS_RESULTS:
+                user_result = "lose"
+            else:
+                user_result = "draw"
+        else:
+            color = opp = user_result = None
+
+        updates.append((
             _parse_elo(pgn, "White"),
             _parse_elo(pgn, "Black"),
             _parse_move_count(pgn),
             _parse_duration_secs(pgn),
             _parse_pgn_header(pgn, "Termination"),
             _parse_opening(pgn),
+            color,
+            opp,
+            user_result,
             url,
-        )
-        for url, pgn in rows
-    ]
+        ))
+
     conn.executemany("""
         UPDATE games SET
             white_elo = ?, black_elo = ?, move_count = ?,
-            game_duration_secs = ?, termination = ?, opening = ?
+            game_duration_secs = ?, termination = ?, opening = ?,
+            color = ?, opponent = ?, user_result = ?
         WHERE url = ?
     """, updates)
     return len(updates)
