@@ -195,7 +195,6 @@ class TestOpponent:
 
 class TestDerivedColumns:
     def test_sync_populates_derived_columns(self, tmp_path):
-        from unittest.mock import patch
         db_path = str(tmp_path / "test.duckdb")
         games = [
             {
