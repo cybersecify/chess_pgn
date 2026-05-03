@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "chess-duckdb": {
+      "command": "/bin/bash",
+      "args": ["scripts/mcp_chess.sh"]
+    }
+  }
+}
