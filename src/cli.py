@@ -129,9 +129,13 @@ def cmd_export(args: argparse.Namespace) -> None:
 
 def cmd_query(args: argparse.Namespace) -> None:
     sql = args.sql
-    p = Path(sql)
-    if p.exists() and p.is_file():
-        sql = p.read_text()
+    if len(sql) <= 255 and not sql.strip().upper().startswith("SELECT"):
+        p = Path(sql)
+        try:
+            if p.exists() and p.is_file():
+                sql = p.read_text()
+        except OSError:
+            pass
     conn = _open_existing_db(args.db)
     try:
         try:
