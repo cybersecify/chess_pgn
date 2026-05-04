@@ -128,10 +128,14 @@ def cmd_export(args: argparse.Namespace) -> None:
 
 
 def cmd_query(args: argparse.Namespace) -> None:
+    sql = args.sql
+    p = Path(sql)
+    if p.exists() and p.is_file():
+        sql = p.read_text()
     conn = _open_existing_db(args.db)
     try:
         try:
-            rows = store.raw_sql(conn, args.sql)
+            rows = store.raw_sql(conn, sql)
         except duckdb.Error as e:
             print(f"Query error: {e}", file=sys.stderr)
             sys.exit(1)
