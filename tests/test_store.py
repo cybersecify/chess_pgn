@@ -484,10 +484,14 @@ class TestStats:
             )], username="rathnakaragn")
         result = stats(conn, "rathnakaragn")
         assert "best_openings" in result
+        assert len(result["best_openings"]) > 0
         assert result["best_openings"][0][0] == "Sicilian Defense"
+        assert result["best_openings"][0][1] == 5   # wins count
         assert result["best_openings"][0][2] == 5    # 5 games
         assert "worst_openings" in result
+        assert len(result["worst_openings"]) > 0
         assert result["worst_openings"][0][0] == "French Defense"
+        assert result["worst_openings"][0][1] == 0  # 0 wins
 
 
 class TestMigrateDb:
