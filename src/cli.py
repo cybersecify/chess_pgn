@@ -52,7 +52,7 @@ def _archive_ym(url: str) -> str:
 
 def cmd_sync(args: argparse.Namespace) -> None:
     username = args.username
-    db_path = args.db or _default_db(username)
+    db_path = _default_db(username)
     conn = store.init_db(db_path)
     try:
         try:
@@ -107,7 +107,7 @@ def cmd_sync(args: argparse.Namespace) -> None:
 
 def cmd_export(args: argparse.Namespace) -> None:
     username = args.username
-    db_path = args.db or _default_db(username)
+    db_path = _default_db(username)
     conn = _open_existing_db(db_path)
     try:
         games = store.query_games(conn, args.time_class, args.since, args.until, args.n)
@@ -137,8 +137,7 @@ def cmd_query(args: argparse.Namespace) -> None:
                 sql = p.read_text()
         except OSError:
             pass
-    db_path = args.db or _default_db(DEFAULT_USERNAME)
-    conn = _open_existing_db(db_path)
+    conn = _open_existing_db(_default_db(DEFAULT_USERNAME))
     try:
         try:
             rows = store.raw_sql(conn, sql)
@@ -153,7 +152,7 @@ def cmd_query(args: argparse.Namespace) -> None:
 
 def cmd_stats(args: argparse.Namespace) -> None:
     username = args.username
-    db_path = args.db or _default_db(username)
+    db_path = _default_db(username)
     conn = _open_existing_db(db_path)
     try:
         result = store.stats(conn, username, args.time_class)
@@ -259,7 +258,7 @@ def cmd_stats(args: argparse.Namespace) -> None:
 
 def cmd_backfill(args: argparse.Namespace) -> None:
     username = args.username
-    db_path = args.db or _default_db(username)
+    db_path = _default_db(username)
     conn = _open_existing_db(db_path)
     try:
         print("Backfilling derived columns from stored PGNs...", file=sys.stderr)
@@ -271,7 +270,7 @@ def cmd_backfill(args: argparse.Namespace) -> None:
 
 def cmd_rating(args: argparse.Namespace) -> None:
     username = args.username
-    db_path = args.db or _default_db(username)
+    db_path = _default_db(username)
     conn = _open_existing_db(db_path)
     try:
         result = store.rating_history(conn, username)
@@ -293,7 +292,7 @@ def cmd_rating(args: argparse.Namespace) -> None:
 
 def cmd_opponent(args: argparse.Namespace) -> None:
     username = args.username
-    db_path = args.db or _default_db(username)
+    db_path = _default_db(username)
     conn = _open_existing_db(db_path)
     try:
         result = store.opponent_stats(conn, username, args.opponent)
@@ -327,7 +326,6 @@ def main() -> None:
     # sync
     p_sync = sub.add_parser("sync", help="Download and store games from chess.com")
     p_sync.add_argument("username", nargs="?", default=DEFAULT_USERNAME)
-    p_sync.add_argument("--db", help="Path to DuckDB file (default: ./data/{username}.duckdb)")
     p_sync.add_argument("--since", type=_validate_date,
                         help="Only sync archives on or after YYYYMMDD")
     p_sync.add_argument("--until", type=_validate_date,
@@ -339,7 +337,6 @@ def main() -> None:
     # export
     p_export = sub.add_parser("export", help="Export games from DB as PGN")
     p_export.add_argument("username", nargs="?", default=DEFAULT_USERNAME)
-    p_export.add_argument("--db", help="Path to DuckDB file")
     p_export.add_argument("--time-class", dest="time_class",
                           choices=["bullet", "blitz", "rapid", "daily"])
     p_export.add_argument("--since", type=_validate_date)
@@ -351,14 +348,12 @@ def main() -> None:
 
     # query
     p_query = sub.add_parser("query", help="Run raw SQL against the DB")
-    p_query.add_argument("sql", help="SQL query string")
-    p_query.add_argument("--db", help="Path to DuckDB file (default: ./data/$CHESS_USERNAME.duckdb)")
+    p_query.add_argument("sql", help="SQL query string or path to .sql file")
     p_query.set_defaults(func=cmd_query)
 
     # stats
     p_stats = sub.add_parser("stats", help="Show game statistics dashboard")
     p_stats.add_argument("username", nargs="?", default=DEFAULT_USERNAME)
-    p_stats.add_argument("--db", help="Path to DuckDB file")
     p_stats.add_argument("--time-class", dest="time_class",
                          choices=["bullet", "blitz", "rapid", "daily"],
                          help="Filter stats and streaks to one time control")
@@ -367,20 +362,17 @@ def main() -> None:
     # backfill
     p_backfill = sub.add_parser("backfill", help="Re-parse PGNs to fill missing derived columns")
     p_backfill.add_argument("username", nargs="?", default=DEFAULT_USERNAME)
-    p_backfill.add_argument("--db", help="Path to DuckDB file")
     p_backfill.set_defaults(func=cmd_backfill)
 
     # rating
     p_rating = sub.add_parser("rating", help="Show current rating and monthly delta per format")
     p_rating.add_argument("username", nargs="?", default=DEFAULT_USERNAME)
-    p_rating.add_argument("--db", help="Path to DuckDB file")
     p_rating.set_defaults(func=cmd_rating)
 
     # opponent
     p_opponent = sub.add_parser("opponent", help="Show record against a specific player")
     p_opponent.add_argument("opponent", help="Opponent username")
     p_opponent.add_argument("--username", default=DEFAULT_USERNAME)
-    p_opponent.add_argument("--db", help="Path to DuckDB file")
     p_opponent.set_defaults(func=cmd_opponent)
 
     args = ap.parse_args()
