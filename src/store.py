@@ -570,6 +570,24 @@ def stats(conn: duckdb.DuckDBPyConnection, username: str, time_class: str | None
     if not any(sum(v.values()) for v in rating_range.values()):
         rating_range = {}
 
+    dow_rows = conn.execute(f"""
+        SELECT dayofweek(to_timestamp(end_time)) AS dow,
+               user_result, COUNT(*) AS cnt
+        FROM games
+        WHERE (white = ? OR black = ?) AND end_time IS NOT NULL
+          AND user_result IS NOT NULL {tc_filter}
+        GROUP BY dow, user_result
+    """, [username, username] + tc_params).fetchall()
+
+    _dow_names = {0: "Sun", 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat"}
+    day_of_week: dict = {}
+    for dow_int, outcome, cnt in dow_rows:
+        name = _dow_names.get(int(dow_int), str(dow_int))
+        if name not in day_of_week:
+            day_of_week[name] = {"win": 0, "lose": 0, "draw": 0}
+        key = "win" if outcome == "win" else ("lose" if outcome in _LOSS_RESULTS else "draw")
+        day_of_week[name][key] += cnt
+
     return {
         "total": total,
         "by_time_class": by_time_class,
@@ -584,6 +602,7 @@ def stats(conn: duckdb.DuckDBPyConnection, username: str, time_class: str | None
         "worst_openings": worst_opening_rows,
         "time_pressure": time_pressure,
         "rating_range": rating_range,
+        "day_of_week": day_of_week,
     }
 
 

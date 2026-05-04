@@ -232,6 +232,17 @@ def cmd_stats(args: argparse.Namespace) -> None:
                 pct = counts["win"] / total_b * 100
                 print(f"  {bucket:14s} ({labels[bucket]})  W:{counts['win']}  "
                       f"L:{counts['lose']}  D:{counts['draw']}  ({pct:.0f}%)")
+        if result["day_of_week"]:
+            print("\nBy day of week:")
+            parts = []
+            for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]:
+                if day not in result["day_of_week"]:
+                    continue
+                counts = result["day_of_week"][day]
+                total_d = sum(counts.values())
+                pct = counts["win"] / total_d * 100 if total_d else 0
+                parts.append(f"{day} {pct:.0f}%({total_d}g)")
+            print("  " + "  ".join(parts))
     finally:
         conn.close()
 

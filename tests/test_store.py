@@ -534,6 +534,18 @@ class TestStats:
         assert result["rating_range"]["much weaker"]["win"] == 1
         assert result["rating_range"]["similar"]["win"] == 0
 
+    def test_day_of_week(self, conn):
+        # end_time 1704067200 = 2024-01-01 00:00:00 UTC = Monday, dayofweek=1
+        upsert_games(conn, [make_game(
+            end_time=1704067200,
+            white={"username": "rathnakaragn", "result": "win"},
+            black={"username": "opp", "result": "lose"},
+        )], username="rathnakaragn")
+        result = stats(conn, "rathnakaragn")
+        assert "day_of_week" in result
+        assert "Mon" in result["day_of_week"]
+        assert result["day_of_week"]["Mon"]["win"] == 1
+
 
 class TestMigrateDb:
     def test_adds_missing_columns_to_old_schema(self):
