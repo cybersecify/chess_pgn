@@ -16,7 +16,7 @@ import duckdb
 from src.downloader import _api_get, API_BASE
 from src import store
 
-DEFAULT_USERNAME = os.environ.get("CHESS_USERNAME", "rathnakaragn")
+DEFAULT_USERNAME = os.environ.get("CHESS_USERNAME", "")
 
 
 def _default_db(username: str) -> str:
@@ -137,7 +137,7 @@ def cmd_query(args: argparse.Namespace) -> None:
                 sql = p.read_text()
         except OSError:
             pass
-    conn = _open_existing_db(_default_db(DEFAULT_USERNAME))
+    conn = _open_existing_db(_default_db(os.environ.get("CHESS_USERNAME", "")))
     try:
         try:
             rows = store.raw_sql(conn, sql)
@@ -318,6 +318,9 @@ def cmd_opponent(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    # Re-read from env each call so monkeypatching works in tests.
+    default_user = os.environ.get("CHESS_USERNAME", "")
+
     ap = argparse.ArgumentParser(
         description="Chess.com game downloader and analyzer."
     )
@@ -325,7 +328,7 @@ def main() -> None:
 
     # sync
     p_sync = sub.add_parser("sync", help="Download and store games from chess.com")
-    p_sync.add_argument("username", nargs="?", default=DEFAULT_USERNAME)
+    p_sync.add_argument("username", nargs="?", default=default_user)
     p_sync.add_argument("--since", type=_validate_date,
                         help="Only sync archives on or after YYYYMMDD")
     p_sync.add_argument("--until", type=_validate_date,
@@ -336,7 +339,7 @@ def main() -> None:
 
     # export
     p_export = sub.add_parser("export", help="Export games from DB as PGN")
-    p_export.add_argument("username", nargs="?", default=DEFAULT_USERNAME)
+    p_export.add_argument("username", nargs="?", default=default_user)
     p_export.add_argument("--time-class", dest="time_class",
                           choices=["bullet", "blitz", "rapid", "daily"])
     p_export.add_argument("--since", type=_validate_date)
@@ -353,7 +356,7 @@ def main() -> None:
 
     # stats
     p_stats = sub.add_parser("stats", help="Show game statistics dashboard")
-    p_stats.add_argument("username", nargs="?", default=DEFAULT_USERNAME)
+    p_stats.add_argument("username", nargs="?", default=default_user)
     p_stats.add_argument("--time-class", dest="time_class",
                          choices=["bullet", "blitz", "rapid", "daily"],
                          help="Filter stats and streaks to one time control")
@@ -361,19 +364,30 @@ def main() -> None:
 
     # backfill
     p_backfill = sub.add_parser("backfill", help="Re-parse PGNs to fill missing derived columns")
-    p_backfill.add_argument("username", nargs="?", default=DEFAULT_USERNAME)
+    p_backfill.add_argument("username", nargs="?", default=default_user)
     p_backfill.set_defaults(func=cmd_backfill)
 
     # rating
     p_rating = sub.add_parser("rating", help="Show current rating and monthly delta per format")
-    p_rating.add_argument("username", nargs="?", default=DEFAULT_USERNAME)
+    p_rating.add_argument("username", nargs="?", default=default_user)
     p_rating.set_defaults(func=cmd_rating)
 
     # opponent
     p_opponent = sub.add_parser("opponent", help="Show record against a specific player")
     p_opponent.add_argument("opponent", help="Opponent username")
-    p_opponent.add_argument("--username", default=DEFAULT_USERNAME)
+    p_opponent.add_argument("--username", default=default_user)
     p_opponent.set_defaults(func=cmd_opponent)
 
     args = ap.parse_args()
+
+    username = getattr(args, "username", None) or default_user
+    if not username:
+        ap.error(
+            "No username provided. Pass it as an argument or set CHESS_USERNAME:\n"
+            "  python main.py stats <username>\n"
+            "  export CHESS_USERNAME=<username>"
+        )
+    if hasattr(args, "username"):
+        args.username = username
+
     args.func(args)

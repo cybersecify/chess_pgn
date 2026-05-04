@@ -89,6 +89,7 @@ class TestSync:
 
 class TestExport:
     def test_export_to_file(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("CHESS_USERNAME", "rathnakaragn")
         monkeypatch.chdir(tmp_path)
         seed_db(tmp_path)
         out = tmp_path / "out.pgn"
@@ -96,12 +97,14 @@ class TestExport:
         assert "Sicilian Defense" in out.read_text()
 
     def test_export_to_stdout(self, tmp_path, monkeypatch, capsys):
+        monkeypatch.setenv("CHESS_USERNAME", "rathnakaragn")
         monkeypatch.chdir(tmp_path)
         seed_db(tmp_path)
         run_cli("export")
         assert "Sicilian Defense" in capsys.readouterr().out
 
     def test_export_filter_time_class(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("CHESS_USERNAME", "rathnakaragn")
         monkeypatch.chdir(tmp_path)
         seed_db(tmp_path, games=[
             SAMPLE_GAME,
@@ -115,6 +118,7 @@ class TestExport:
         assert "Sicilian Defense" not in content
 
     def test_export_missing_db_exits(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("CHESS_USERNAME", "rathnakaragn")
         monkeypatch.chdir(tmp_path)
         with pytest.raises(SystemExit) as exc:
             run_cli("export")
@@ -123,12 +127,14 @@ class TestExport:
 
 class TestQuery:
     def test_query_prints_rows(self, tmp_path, monkeypatch, capsys):
+        monkeypatch.setenv("CHESS_USERNAME", "rathnakaragn")
         monkeypatch.chdir(tmp_path)
         seed_db(tmp_path)
         run_cli("query", "SELECT url FROM games")
         assert "https://chess.com/game/1" in capsys.readouterr().out
 
     def test_query_invalid_sql_exits(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("CHESS_USERNAME", "rathnakaragn")
         monkeypatch.chdir(tmp_path)
         seed_db(tmp_path)
         with pytest.raises(SystemExit) as exc:
@@ -166,6 +172,7 @@ class TestBackfill:
 
 class TestOpponent:
     def test_opponent_happy_path(self, tmp_path, monkeypatch, capsys):
+        monkeypatch.setenv("CHESS_USERNAME", "rathnakaragn")
         monkeypatch.chdir(tmp_path)
         seed_db(tmp_path, games=[
             SAMPLE_GAME,
@@ -181,6 +188,7 @@ class TestOpponent:
         assert "D:" in out
 
     def test_opponent_missing_db_exits(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("CHESS_USERNAME", "rathnakaragn")
         monkeypatch.chdir(tmp_path)
         with pytest.raises(SystemExit) as exc:
             run_cli("opponent", "fischer")
