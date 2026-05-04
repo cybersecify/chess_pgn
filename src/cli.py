@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import os
 import re
 import sys
 import time
@@ -15,7 +16,7 @@ import duckdb
 from src.downloader import _api_get, API_BASE
 from src import store
 
-DEFAULT_USERNAME = "rathnakaragn"
+DEFAULT_USERNAME = os.environ.get("CHESS_USERNAME", "rathnakaragn")
 
 
 def _default_db(username: str) -> str:
@@ -136,7 +137,8 @@ def cmd_query(args: argparse.Namespace) -> None:
                 sql = p.read_text()
         except OSError:
             pass
-    conn = _open_existing_db(args.db)
+    db_path = args.db or _default_db(DEFAULT_USERNAME)
+    conn = _open_existing_db(db_path)
     try:
         try:
             rows = store.raw_sql(conn, sql)
@@ -350,7 +352,7 @@ def main() -> None:
     # query
     p_query = sub.add_parser("query", help="Run raw SQL against the DB")
     p_query.add_argument("sql", help="SQL query string")
-    p_query.add_argument("--db", required=True, help="Path to DuckDB file")
+    p_query.add_argument("--db", help="Path to DuckDB file (default: ./data/$CHESS_USERNAME.duckdb)")
     p_query.set_defaults(func=cmd_query)
 
     # stats
