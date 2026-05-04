@@ -437,7 +437,7 @@ def stats(conn: duckdb.DuckDBPyConnection, username: str, time_class: str | None
         pct = round(wins_count / games_cnt * 100, 1) if games_cnt else 0.0
         trend[tc_name][ym] = {"games": games_cnt, "win_pct": pct}
 
-    # Time of day (UTC hours)
+    # Time of day (IST — DuckDB hour() uses local timezone, machine is IST)
     tod_rows = conn.execute(f"""
         SELECT
             CASE

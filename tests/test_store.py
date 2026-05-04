@@ -425,7 +425,7 @@ class TestStats:
         assert has_current
 
     def test_time_of_day_counts_wins(self, conn):
-        # end_time 1704067200 = 2024-01-01 00:00:00 UTC => hour=0 => 'night'
+        # end_time 1704067200 = 2024-01-01 00:00:00 UTC = 05:30 IST => hour=5 => 'night'
         upsert_games(conn, [make_game(
             url="u_night",
             end_time=1704067200,

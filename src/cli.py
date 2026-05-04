@@ -175,7 +175,7 @@ def cmd_stats(args: argparse.Namespace) -> None:
                 print(f"  {tc:10s}  " + "  →  ".join(parts))
 
         if result["time_of_day"]:
-            print("\nBy time of day (UTC):")
+            print("\nBy time of day (IST):")
             for period in ["morning", "afternoon", "evening", "night"]:
                 if period not in result["time_of_day"]:
                     continue
