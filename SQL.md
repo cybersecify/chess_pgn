@@ -1,12 +1,12 @@
 # Chess Game Analysis — SQL Reference
 
-Two ways to run queries (username read from `CHESS_USERNAME` env var):
+Run queries with `CHESS_USERNAME` set (or pass `--username`):
 
 ```bash
-# Inline SQL
-python main.py query "SELECT COUNT(*) FROM games"
+# Inline SQL — $USERNAME is substituted automatically
+python main.py query "SELECT COUNT(*) FROM games WHERE white = $USERNAME OR black = $USERNAME"
 
-# From a file — $USERNAME is substituted automatically
+# From a file
 python main.py query queries/summary.sql
 
 # Override username for one query
@@ -32,20 +32,20 @@ python main.py query queries/summary.sql --username neopaque
 | `black_elo` | INTEGER | Black rating at game time |
 | `eco` | TEXT | ECO code (e.g. `B20`) |
 | `opening` | TEXT | Opening name (e.g. `Sicilian Defense`) |
-| `move_count` | INTEGER | Last full-move number (e.g. 2 for a game ending on move 2) |
-| `game_duration_secs` | INTEGER | Wall-clock duration |
+| `move_count` | INTEGER | Last full-move number (e.g. `2` for a game ending on move 2) |
+| `game_duration_secs` | INTEGER | Wall-clock duration in seconds |
 | `termination` | TEXT | How game ended |
 | `color` | TEXT | `white` or `black` (relative to tracked user) |
 | `opponent` | TEXT | Opponent username |
 | `user_result` | TEXT | `win`, `lose`, or `draw` (relative to tracked user) |
-| `white_time_used_secs` | INTEGER | Clock time used by white |
-| `black_time_used_secs` | INTEGER | Clock time used by black |
+| `white_time_used_secs` | INTEGER | Total clock time used by white |
+| `black_time_used_secs` | INTEGER | Total clock time used by black |
 
 ---
 
 ## Query Files
 
-Pre-built queries in the `queries/` directory. Run with:
+Pre-built queries in the `queries/` directory. All use `$USERNAME` which is substituted with the active username at runtime.
 
 ```bash
 python main.py query queries/<file>.sql
@@ -76,7 +76,7 @@ python main.py query queries/<file>.sql
 |------|-------------|
 | `opponents_most_played.sql` | Most played opponents |
 | `opponents_toughest.sql` | Opponents with most wins against you |
-| `biggest_upsets.sql` | Your wins against opponents rated 100+ higher |
+| `biggest_upsets.sql` | Wins against opponents rated 100+ higher |
 | `rematch_record.sql` | Result in rematches — revenge or tilt? |
 
 ### Rating
@@ -96,13 +96,12 @@ python main.py query queries/<file>.sql
 | `session_fatigue.sql` | Win rate by game number in a session — detects fatigue |
 | `game_length_sweet_spot.sql` | Win rate by move count — short tactical vs long grind |
 | `time_pressure.sql` | Win rate by % of clock used |
+| `time_pressure_monthly.sql` | Time pressure trend month by month |
 | `time_of_day.sql` | Win rate by time of day (IST) |
 | `day_of_week.sql` | Win rate by day of week |
 | `losing_streaks.sql` | Longest losing streaks |
 
 ### Mindset & Psychology (Deep)
-
-Run Python scripts directly (not via `query` command):
 
 | File | Description |
 |------|-------------|
@@ -113,19 +112,20 @@ Run Python scripts directly (not via `query` command):
 | `day_time_combined.sql` | Day of week × time of day combined — peak performance slot |
 | `rating_anxiety.sql` | Win rate near rating milestones (every 50 pts) — choke factor |
 | `titled_opponent_effect.sql` | Intimidation factor vs GM/IM/FM/CM/NM vs untitled |
-| `streak_day_performance.sql` | Consecutive-day streak: does momentum build or fatigue accumulate? |
+| `streak_day_performance.sql` | Consecutive-day streak: momentum build or fatigue? |
 | `color_gap_after_loss.sql` | White/black mindset gap — does losing as one color affect the other? |
-| `first_move_speed.py` | First move response time vs win rate — impulsive vs deliberate openers |
 
-> **Note:** `first_move_speed.py` parses `[%clk]` PGN annotations and runs as a standalone script:
+> `first_move_speed.py` parses `[%clk]` PGN annotations and runs as a standalone script:
 > ```bash
-> .venv/bin/python queries/first_move_speed.py [--user <username>]
-> # username defaults to $CHESS_USERNAME
+> .venv/bin/python queries/first_move_speed.py
+> # username read from $CHESS_USERNAME, or pass --user <username>
 > ```
 
 ---
 
 ## Ad-hoc Query Examples
+
+All examples use `$USERNAME` which is substituted automatically when run via `python main.py query`.
 
 ### Overall Summary
 
@@ -134,7 +134,7 @@ Run Python scripts directly (not via `query` command):
 SELECT strftime(to_timestamp(end_time), '%Y-%m') AS month,
        COUNT(*) AS games
 FROM games
-WHERE (white = 'rathnakaragn' OR black = 'rathnakaragn')
+WHERE (white = $USERNAME OR black = $USERNAME)
   AND end_time IS NOT NULL
 GROUP BY month
 ORDER BY month DESC
@@ -151,7 +151,7 @@ SELECT color,
        SUM(CASE WHEN user_result = 'draw' THEN 1 ELSE 0 END) AS draws,
        ROUND(100.0 * SUM(CASE WHEN user_result = 'win' THEN 1 ELSE 0 END) / COUNT(*), 1) AS win_pct
 FROM games
-WHERE (white = 'rathnakaragn' OR black = 'rathnakaragn')
+WHERE (white = $USERNAME OR black = $USERNAME)
   AND color IS NOT NULL AND user_result IS NOT NULL
 GROUP BY color
 ```
@@ -160,7 +160,7 @@ GROUP BY color
 -- How games end (termination types)
 SELECT termination, COUNT(*) AS cnt
 FROM games
-WHERE white = 'rathnakaragn' OR black = 'rathnakaragn'
+WHERE white = $USERNAME OR black = $USERNAME
 GROUP BY termination
 ORDER BY cnt DESC
 ```
@@ -168,11 +168,11 @@ ORDER BY cnt DESC
 ### Game Quality
 
 ```sql
--- Short games: likely early blunders or resignations (rapid, < 20 half-moves)
+-- Short games: likely early blunders or quick resignations (rapid, move_count < 20)
 SELECT strftime(to_timestamp(end_time), '%Y-%m-%d') AS date,
        move_count, user_result, opponent, opening
 FROM games
-WHERE (white = 'rathnakaragn' OR black = 'rathnakaragn')
+WHERE (white = $USERNAME OR black = $USERNAME)
   AND move_count IS NOT NULL AND move_count < 20
   AND time_class = 'rapid'
 ORDER BY move_count ASC
@@ -185,7 +185,7 @@ SELECT strftime(to_timestamp(end_time), '%Y-%m-%d') AS date,
        move_count, game_duration_secs / 60 AS duration_min,
        user_result, opponent, opening
 FROM games
-WHERE (white = 'rathnakaragn' OR black = 'rathnakaragn')
+WHERE (white = $USERNAME OR black = $USERNAME)
   AND time_class = 'rapid' AND move_count IS NOT NULL
 ORDER BY move_count DESC
 LIMIT 20
@@ -195,9 +195,9 @@ LIMIT 20
 -- Average game length by format
 SELECT time_class,
        ROUND(AVG(game_duration_secs) / 60.0, 1) AS avg_duration_min,
-       ROUND(AVG(move_count) / 2.0, 1) AS avg_moves
+       ROUND(AVG(move_count), 1) AS avg_moves
 FROM games
-WHERE (white = 'rathnakaragn' OR black = 'rathnakaragn')
+WHERE (white = $USERNAME OR black = $USERNAME)
   AND game_duration_secs IS NOT NULL
 GROUP BY time_class
 ```
@@ -210,7 +210,7 @@ SELECT time_class,
        ROUND(100.0 * SUM(CASE WHEN white_result = 'timeout' OR black_result = 'timeout' THEN 1 ELSE 0 END)
              / COUNT(*), 1) AS timeout_pct
 FROM games
-WHERE white = 'rathnakaragn' OR black = 'rathnakaragn'
+WHERE white = $USERNAME OR black = $USERNAME
 GROUP BY time_class
 ```
 
@@ -224,7 +224,7 @@ SELECT strftime(to_timestamp(end_time), '%Y-%m-%d') AS date,
        CASE WHEN color = 'white' THEN black_elo ELSE white_elo END AS opp_elo,
        opening
 FROM games
-WHERE (white = 'rathnakaragn' OR black = 'rathnakaragn')
+WHERE (white = $USERNAME OR black = $USERNAME)
   AND time_class = 'rapid'
   AND strftime(to_timestamp(end_time), '%Y-%m') = strftime(now(), '%Y-%m')
 ORDER BY end_time DESC
