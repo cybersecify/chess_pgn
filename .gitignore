@@ -9,6 +9,9 @@ wheels/
 # Virtual environments
 .venv
 
+# Local environment — contains personal username, not for committing
+.envrc
+
 # Cached API responses
 .chess_cache/
 
