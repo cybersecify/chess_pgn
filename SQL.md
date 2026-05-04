@@ -48,6 +48,55 @@ Pre-built queries in the `queries/` directory. Run with:
 python main.py query queries/<file>.sql --db data/rathnakaragn.duckdb
 ```
 
+### Basic Analysis
+
+| File | Description |
+|------|-------------|
+| `summary.sql` | W/L/D and win% by time control |
+| `monthly_trend.sql` | Monthly win rate (rapid, last 12 months) |
+| `recent_games.sql` | Last 30 rapid games with rating and opening |
+
+### Openings
+
+| File | Description |
+|------|-------------|
+| `openings_best.sql` | Best openings by win rate (min 10 games) |
+| `openings_worst.sql` | Worst openings by win rate (min 10 games) |
+| `openings_by_color.sql` | Opening win rate split by color |
+| `opening_loyalty.sql` | Core repertoire vs regular vs one-off experiments |
+| `draw_by_opening.sql` | Openings with highest draw rate |
+| `eco_family.sql` | Performance by ECO family (A/B/C/D/E) |
+
+### Opponents
+
+| File | Description |
+|------|-------------|
+| `opponents_most_played.sql` | Most played opponents |
+| `opponents_toughest.sql` | Opponents with most wins against you |
+| `biggest_upsets.sql` | Your wins against opponents rated 100+ higher |
+| `rematch_record.sql` | Result in rematches — revenge or tilt? |
+
+### Rating
+
+| File | Description |
+|------|-------------|
+| `rating_history.sql` | Monthly rating high/low (rapid) |
+| `rating_vs_opponent.sql` | Win rate vs opponent strength bands |
+| `rating_momentum.sql` | Rolling 10-game win rate — hot and cold streaks |
+| `draw_by_rating.sql` | Draw rate vs weaker / similar / stronger opponents |
+
+### Patterns & Psychology
+
+| File | Description |
+|------|-------------|
+| `tilt_detection.sql` | Win rate after a win/loss/draw — detects tilt |
+| `session_fatigue.sql` | Win rate by game number in a session — detects fatigue |
+| `game_length_sweet_spot.sql` | Win rate by move count — short tactical vs long grind |
+| `time_pressure.sql` | Win rate by % of clock used |
+| `time_of_day.sql` | Win rate by time of day (IST) |
+| `day_of_week.sql` | Win rate by day of week |
+| `losing_streaks.sql` | Longest losing streaks |
+
 | File | Description |
 |------|-------------|
 | `summary.sql` | W/L/D and win% by time control |
