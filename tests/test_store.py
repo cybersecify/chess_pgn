@@ -493,6 +493,17 @@ class TestStats:
         assert result["worst_openings"][0][0] == "French Defense"
         assert result["worst_openings"][0][1] == 0  # 0 wins
 
+    def test_time_pressure(self, conn):
+        # make_game: time_control="600", white_time_used=30 → 30/600=5% → "< 30%"
+        upsert_games(conn, [make_game(
+            white={"username": "rathnakaragn", "result": "win"},
+            black={"username": "opp", "result": "lose"},
+        )], username="rathnakaragn")
+        result = stats(conn, "rathnakaragn")
+        assert "time_pressure" in result
+        assert result["time_pressure"]["< 30%"]["win"] == 1
+        assert result["time_pressure"]["30-70%"]["win"] == 0
+
 
 class TestMigrateDb:
     def test_adds_missing_columns_to_old_schema(self):

@@ -523,6 +523,33 @@ def stats(conn: duckdb.DuckDBPyConnection, username: str, time_class: str | None
         LIMIT 5
     """, [username, username] + tc_params).fetchall()
 
+    time_rows = conn.execute(f"""
+        SELECT color, user_result, time_control,
+               white_time_used_secs, black_time_used_secs
+        FROM games
+        WHERE color IS NOT NULL AND user_result IS NOT NULL
+          AND white_time_used_secs IS NOT NULL AND black_time_used_secs IS NOT NULL
+          AND time_control IS NOT NULL AND time_control NOT LIKE '%/%'
+          AND (white = ? OR black = ?) {tc_filter}
+    """, [username, username] + tc_params).fetchall()
+
+    time_pressure: dict = {k: {"win": 0, "lose": 0, "draw": 0}
+                           for k in ["< 30%", "30-70%", "> 70%"]}
+    for color_val, outcome, tc_str, white_used, black_used in time_rows:
+        m = re.match(r'^(\d+)', tc_str)
+        if not m:
+            continue
+        initial = int(m.group(1))
+        if initial == 0:
+            continue
+        used = white_used if color_val == "white" else black_used
+        pct = used * 100 / initial
+        bucket = "< 30%" if pct < 30 else ("> 70%" if pct > 70 else "30-70%")
+        key = "win" if outcome == "win" else ("lose" if outcome in _LOSS_RESULTS else "draw")
+        time_pressure[bucket][key] += 1
+    if not any(sum(v.values()) for v in time_pressure.values()):
+        time_pressure = {}
+
     return {
         "total": total,
         "by_time_class": by_time_class,
@@ -535,6 +562,7 @@ def stats(conn: duckdb.DuckDBPyConnection, username: str, time_class: str | None
         "by_color": by_color,
         "best_openings": best_opening_rows,
         "worst_openings": worst_opening_rows,
+        "time_pressure": time_pressure,
     }
 
 

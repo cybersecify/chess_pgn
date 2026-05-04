@@ -211,6 +211,16 @@ def cmd_stats(args: argparse.Namespace) -> None:
             for opening, wins, games in result["worst_openings"]:
                 pct = wins / games * 100 if games else 0
                 print(f"  {opening:35s}  {pct:.0f}%  ({games}g)")
+        if result["time_pressure"]:
+            print("\nTime pressure (% of clock used):")
+            for bucket in ["< 30%", "30-70%", "> 70%"]:
+                counts = result["time_pressure"].get(bucket, {"win": 0, "lose": 0, "draw": 0})
+                total_b = sum(counts.values())
+                if total_b == 0:
+                    continue
+                pct = counts["win"] / total_b * 100
+                print(f"  {bucket:8s}  W:{counts['win']}  L:{counts['lose']}  "
+                      f"D:{counts['draw']}  ({pct:.0f}%)")
     finally:
         conn.close()
 
