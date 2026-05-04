@@ -86,7 +86,7 @@ def _parse_clock_times(pgn: str | None) -> tuple[int | None, int | None]:
     if not pgn:
         return None, None
     tc = _parse_pgn_header(pgn, "TimeControl")
-    if not tc:
+    if not tc or '/' in tc:   # daily chess: N/seconds-per-move format
         return None, None
     tc_match = re.match(r'^(\d+)', tc)
     if not tc_match:
@@ -104,8 +104,8 @@ def _parse_clock_times(pgn: str | None) -> tuple[int | None, int | None]:
     white_last = clocks[0::2][-1] if clocks[0::2] else None
     black_last = clocks[1::2][-1] if clocks[1::2] else None
     return (
-        initial - white_last if white_last is not None else None,
-        initial - black_last if black_last is not None else None,
+        max(0, initial - white_last) if white_last is not None else None,
+        max(0, initial - black_last) if black_last is not None else None,
     )
 
 

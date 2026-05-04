@@ -218,6 +218,44 @@ class TestUpsertGames:
         assert row[0] == 5   # 60 - 55
         assert row[1] == 2   # 60 - 58
 
+    def test_clock_times_clamped_to_zero_when_increment_exceeds_base(self, conn):
+        # 30+20 increment: player with 5s base got 20s back = 45s remaining > 30s initial
+        upsert_games(conn, [make_game(
+            url="https://chess.com/game/5",
+            pgn=(
+                '[ECO "B20"]\n'
+                '[WhiteElo "1200"]\n'
+                '[BlackElo "1100"]\n'
+                '[TimeControl "30+20"]\n'
+                '\n'
+                '1. e4 {[%clk 0:00:45]} 1... c5 {[%clk 0:00:28]} *'
+            ),
+        )])
+        row = conn.execute(
+            "SELECT white_time_used_secs, black_time_used_secs FROM games"
+        ).fetchone()
+        assert row[0] == 0   # clamped: 30 - 45 = -15 → 0
+        assert row[1] == 2   # 30 - 28 = 2 (normal)
+
+    def test_clock_times_null_for_daily_time_control(self, conn):
+        # Daily chess uses N/seconds-per-move format (e.g. 1/86400)
+        upsert_games(conn, [make_game(
+            url="https://chess.com/game/6",
+            pgn=(
+                '[ECO "B20"]\n'
+                '[WhiteElo "1200"]\n'
+                '[BlackElo "1100"]\n'
+                '[TimeControl "1/86400"]\n'
+                '\n'
+                '1. e4 {[%clk 0:09:50]} 1... c5 {[%clk 0:09:40]} *'
+            ),
+        )])
+        row = conn.execute(
+            "SELECT white_time_used_secs, black_time_used_secs FROM games"
+        ).fetchone()
+        assert row[0] is None
+        assert row[1] is None
+
 
 class TestArchiveTracking:
     def test_empty_initially(self, conn):
