@@ -482,6 +482,21 @@ def stats(conn: duckdb.DuckDBPyConnection, username: str, time_class: str | None
 
     game_phase_losses = {phase: cnt for phase, cnt in phase_rows}
 
+    color_rows = conn.execute(f"""
+        SELECT color, user_result, COUNT(*) AS cnt
+        FROM games
+        WHERE color IS NOT NULL AND user_result IS NOT NULL
+          AND (white = ? OR black = ?) {tc_filter}
+        GROUP BY color, user_result
+    """, [username, username] + tc_params).fetchall()
+
+    by_color: dict = {}
+    for color_val, outcome, cnt in color_rows:
+        if color_val not in by_color:
+            by_color[color_val] = {"win": 0, "lose": 0, "draw": 0}
+        key = "win" if outcome == "win" else ("lose" if outcome in _LOSS_RESULTS else "draw")
+        by_color[color_val][key] += cnt
+
     return {
         "total": total,
         "by_time_class": by_time_class,
@@ -491,6 +506,7 @@ def stats(conn: duckdb.DuckDBPyConnection, username: str, time_class: str | None
         "trend": trend,
         "time_of_day": time_of_day,
         "game_phase_losses": game_phase_losses,
+        "by_color": by_color,
     }
 
 

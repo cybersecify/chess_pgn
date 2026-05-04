@@ -190,6 +190,17 @@ def cmd_stats(args: argparse.Namespace) -> None:
             for phase in ["opening", "middlegame", "endgame"]:
                 cnt = result["game_phase_losses"].get(phase, 0)
                 print(f"  {phase:12s}  {cnt}")
+
+        if result["by_color"]:
+            print("\nBy color:")
+            for color_val in ["white", "black"]:
+                if color_val not in result["by_color"]:
+                    continue
+                counts = result["by_color"][color_val]
+                total_c = sum(counts.values())
+                pct = counts["win"] / total_c * 100 if total_c else 0
+                print(f"  {color_val:8s}  W:{counts['win']}  L:{counts['lose']}  "
+                      f"D:{counts['draw']}  ({pct:.0f}%)")
     finally:
         conn.close()
 

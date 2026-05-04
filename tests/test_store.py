@@ -449,6 +449,22 @@ class TestStats:
         assert isinstance(result["game_phase_losses"], dict)
         assert result["game_phase_losses"].get("opening", 0) == 1
 
+    def test_by_color(self, conn):
+        upsert_games(conn, [
+            make_game(url="u1",
+                      white={"username": "rathnakaragn", "result": "win"},
+                      black={"username": "opp", "result": "lose"}),
+            make_game(url="u2",
+                      white={"username": "opp", "result": "win"},
+                      black={"username": "rathnakaragn", "result": "lose"}),
+        ], username="rathnakaragn")
+        result = stats(conn, "rathnakaragn")
+        assert "by_color" in result
+        assert result["by_color"]["white"]["win"] == 1
+        assert result["by_color"]["white"]["lose"] == 0
+        assert result["by_color"]["black"]["lose"] == 1
+        assert result["by_color"]["black"]["win"] == 0
+
 
 class TestMigrateDb:
     def test_adds_missing_columns_to_old_schema(self):
