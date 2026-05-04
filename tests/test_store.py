@@ -465,6 +465,30 @@ class TestStats:
         assert result["by_color"]["black"]["lose"] == 1
         assert result["by_color"]["black"]["win"] == 0
 
+    def test_best_worst_openings(self, conn):
+        # 5 wins with Sicilian Defense
+        for i in range(5):
+            upsert_games(conn, [make_game(
+                url=f"sic{i}",
+                pgn='[ECOUrl "https://www.chess.com/openings/Sicilian-Defense"]\n\n1. e4 c5 *',
+                white={"username": "rathnakaragn", "result": "win"},
+                black={"username": "opp", "result": "lose"},
+            )], username="rathnakaragn")
+        # 5 losses with French Defense
+        for i in range(5):
+            upsert_games(conn, [make_game(
+                url=f"fr{i}",
+                pgn='[ECOUrl "https://www.chess.com/openings/French-Defense"]\n\n1. e4 e6 *',
+                white={"username": "opp", "result": "win"},
+                black={"username": "rathnakaragn", "result": "lose"},
+            )], username="rathnakaragn")
+        result = stats(conn, "rathnakaragn")
+        assert "best_openings" in result
+        assert result["best_openings"][0][0] == "Sicilian Defense"
+        assert result["best_openings"][0][2] == 5    # 5 games
+        assert "worst_openings" in result
+        assert result["worst_openings"][0][0] == "French Defense"
+
 
 class TestMigrateDb:
     def test_adds_missing_columns_to_old_schema(self):

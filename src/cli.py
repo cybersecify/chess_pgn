@@ -201,6 +201,16 @@ def cmd_stats(args: argparse.Namespace) -> None:
                 pct = counts["win"] / total_c * 100 if total_c else 0
                 print(f"  {color_val:8s}  W:{counts['win']}  L:{counts['lose']}  "
                       f"D:{counts['draw']}  ({pct:.0f}%)")
+        if result["best_openings"]:
+            print("\nBest openings (min 5 games):")
+            for opening, wins, games in result["best_openings"]:
+                pct = wins / games * 100 if games else 0
+                print(f"  {opening:35s}  {pct:.0f}%  ({games}g)")
+        if result["worst_openings"]:
+            print("\nWorst openings (min 5 games):")
+            for opening, wins, games in result["worst_openings"]:
+                pct = wins / games * 100 if games else 0
+                print(f"  {opening:35s}  {pct:.0f}%  ({games}g)")
     finally:
         conn.close()
 

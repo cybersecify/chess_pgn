@@ -497,6 +497,32 @@ def stats(conn: duckdb.DuckDBPyConnection, username: str, time_class: str | None
         key = "win" if outcome == "win" else ("lose" if outcome in _LOSS_RESULTS else "draw")
         by_color[color_val][key] += cnt
 
+    best_opening_rows = conn.execute(f"""
+        SELECT opening,
+               SUM(CASE WHEN user_result = 'win' THEN 1 ELSE 0 END) AS wins,
+               COUNT(*) AS games
+        FROM games
+        WHERE (white = ? OR black = ?) AND opening IS NOT NULL
+          AND user_result IS NOT NULL {tc_filter}
+        GROUP BY opening
+        HAVING COUNT(*) >= 5
+        ORDER BY wins * 1.0 / COUNT(*) DESC
+        LIMIT 5
+    """, [username, username] + tc_params).fetchall()
+
+    worst_opening_rows = conn.execute(f"""
+        SELECT opening,
+               SUM(CASE WHEN user_result = 'win' THEN 1 ELSE 0 END) AS wins,
+               COUNT(*) AS games
+        FROM games
+        WHERE (white = ? OR black = ?) AND opening IS NOT NULL
+          AND user_result IS NOT NULL {tc_filter}
+        GROUP BY opening
+        HAVING COUNT(*) >= 5
+        ORDER BY wins * 1.0 / COUNT(*) ASC
+        LIMIT 5
+    """, [username, username] + tc_params).fetchall()
+
     return {
         "total": total,
         "by_time_class": by_time_class,
@@ -507,6 +533,8 @@ def stats(conn: duckdb.DuckDBPyConnection, username: str, time_class: str | None
         "time_of_day": time_of_day,
         "game_phase_losses": game_phase_losses,
         "by_color": by_color,
+        "best_openings": best_opening_rows,
+        "worst_openings": worst_opening_rows,
     }
 
 
