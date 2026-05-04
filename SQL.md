@@ -97,23 +97,27 @@ python main.py query queries/<file>.sql --db data/rathnakaragn.duckdb
 | `day_of_week.sql` | Win rate by day of week |
 | `losing_streaks.sql` | Longest losing streaks |
 
+### Mindset & Psychology (Deep)
+
+Run Python scripts directly (not via `query` command):
+
 | File | Description |
 |------|-------------|
-| `summary.sql` | W/L/D and win% by time control |
-| `monthly_trend.sql` | Monthly win rate (rapid, last 12 months) |
-| `openings_best.sql` | Best openings by win rate (min 10 games, rapid) |
-| `openings_worst.sql` | Worst openings by win rate (min 10 games, rapid) |
-| `openings_by_color.sql` | Opening win rate split by color (rapid) |
-| `opponents_most_played.sql` | Most played opponents (rapid) |
-| `opponents_toughest.sql` | Opponents with most wins against you (rapid) |
-| `rating_history.sql` | Monthly rating high/low (rapid) |
-| `rating_vs_opponent.sql` | Win rate by opponent strength band (rapid) |
-| `time_pressure.sql` | Win rate by % of clock used (rapid) |
-| `time_of_day.sql` | Win rate by time of day — morning/afternoon/evening/night (IST) |
-| `day_of_week.sql` | Win rate by day of week (rapid, IST) |
-| `losing_streaks.sql` | Longest losing streaks (rapid) |
-| `recent_games.sql` | Last 30 rapid games |
-| `biggest_upsets.sql` | Wins against opponents rated 100+ higher (rapid) |
+| `revenge_spiral.sql` | Win rate in games 1–5 after a loss — revenge vs tilt |
+| `rest_effect.sql` | Win rate by break length: same session → 7+ days |
+| `format_switching.sql` | First-of-session vs same-format vs switched-format win rate |
+| `collapse_recovery.sql` | Next game after long loss (collapse) vs short loss (blunder) |
+| `day_time_combined.sql` | Day of week × time of day combined — peak performance slot |
+| `rating_anxiety.sql` | Win rate near rating milestones (every 50 pts) — choke factor |
+| `titled_opponent_effect.sql` | Intimidation factor vs GM/IM/FM/CM/NM vs untitled |
+| `streak_day_performance.sql` | Consecutive-day streak: does momentum build or fatigue accumulate? |
+| `color_gap_after_loss.sql` | White/black mindset gap — does losing as one color affect the other? |
+| `first_move_speed.py` | First move response time vs win rate — impulsive vs deliberate openers |
+
+> **Note:** `first_move_speed.py` parses `[%clk]` PGN annotations and runs as a standalone script:
+> ```bash
+> .venv/bin/python queries/first_move_speed.py
+> ```
 
 ---
 
