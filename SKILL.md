@@ -206,6 +206,94 @@ python main.py query queries/recent_games.sql            # last 30 rapid games w
 
 ---
 
+### 11. Win Streaks
+
+**Question:** What's my longest winning run? How does it compare to my losing streaks?
+
+```bash
+python main.py query queries/win_streaks.sql    # top 10 longest winning runs
+python main.py query queries/losing_streaks.sql # top 10 longest losing runs
+```
+
+Compare the two. If your longest win streak is 9 and longest losing streak is 11, the floor and ceiling are roughly balanced. A losing streak ceiling significantly above your win streak ceiling suggests you grind through slumps instead of cutting sessions short.
+
+---
+
+### 12. How Games End
+
+**Question:** Am I resigning too early? Am I flagging? How do I win — checkmate or making them resign?
+
+```bash
+python main.py query queries/termination_breakdown.sql
+```
+
+**How to read the results:**
+- **Resignation win%** typically highest — you only play on when you're better
+- **Checkmate win%** typically lower — these are complex fights that can go either way
+- **Timeout loss rate** high? You have a clock problem, not a chess problem
+- **High abandonment count** — opponent left; these are noise, not real results
+
+---
+
+### 13. Opening Improvement Over Time
+
+**Question:** Is my Scandinavian getting better? Am I actually improving in my core openings?
+
+```bash
+python main.py query queries/opening_trend.sql  # win% by 6-month period for top 8 openings
+```
+
+Shows each opening split into half-year periods (2025-H1, 2025-H2 etc). An opening trending upward means your preparation is working. A flat or declining trend despite many games means you are repeating the same mistakes — study that opening specifically.
+
+---
+
+### 14. Clock Battle
+
+**Question:** Do I win when I spend more time thinking? Does using less time than my opponent help or hurt?
+
+```bash
+python main.py query queries/clock_battle.sql
+```
+
+`clock_ratio` is your time used divided by opponent's time used.
+
+**How to read the results:**
+- **You used less (0.5–0.8x) → highest win%**: you play sharply and efficiently
+- **Even (0.8–1.2x) → low win%**: even time = equal positions = 50/50, so if this is low you're losing drawn positions
+- **You used much less (<0.5x)**: either very fast games or opponent flagged — noisy bucket
+
+---
+
+### 15. Volume vs Quality
+
+**Question:** Do I play better when I play more games per month, or fewer?
+
+```bash
+python main.py query queries/volume_vs_quality.sql
+```
+
+Shows monthly game count alongside win rate for the last 24 months. Look for the pattern:
+- If medium-volume months (10–24 games) have noticeably higher win% than very-high-volume months (50+), you are grinding past your optimal stopping point
+- If win% is stable across volumes, game count doesn't affect your quality
+
+---
+
+### 16. Fresh vs Repeat Opponents
+
+**Question:** Do I do better against players I've never faced, or ones I've played before?
+
+```bash
+python main.py query queries/fresh_vs_repeat.sql
+```
+
+**How to read the results:**
+- **1st game**: baseline — no information on either side
+- **2nd game**: you've seen their style once
+- **3rd–4th game**: if win% drops here, opponents are adapting to you faster than you're adapting to them
+- **5th+ game**: regular sparring partners — high win% here means you study opponents well; low means they have your number
+
+---
+
 ## Ad-hoc SQL
 
 For anything not covered by a pre-built query, use the `query` subcommand with inline SQL or a custom `.sql` file. `$USERNAME` is substituted automatically.
