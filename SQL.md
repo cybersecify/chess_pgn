@@ -116,7 +116,7 @@ Run Python scripts directly (not via `query` command):
 
 > **Note:** `first_move_speed.py` parses `[%clk]` PGN annotations and runs as a standalone script:
 > ```bash
-> .venv/bin/python queries/first_move_speed.py
+> .venv/bin/python queries/first_move_speed.py --db data/<user>.duckdb --user <username>
 > ```
 
 ---

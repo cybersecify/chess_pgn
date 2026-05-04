@@ -1,17 +1,23 @@
 """First move response time vs win rate — impulsive openers vs deliberate ones.
-Run: .venv/bin/python queries/first_move_speed.py
+Run: .venv/bin/python queries/first_move_speed.py --db data/<user>.duckdb --user <username>
 """
+import argparse
 import re
 import duckdb
 from collections import defaultdict
-
-DB = "data/rathnakaragn.duckdb"
-USERNAME = "rathnakaragn"
 
 CLK_RE = re.compile(r'\[%clk (\d+):(\d{2}):(\d{2}(?:\.\d+)?)\]')
 
 def clk_to_secs(h, m, s):
     return int(h) * 3600 + int(m) * 60 + float(s)
+
+parser = argparse.ArgumentParser(description="First move speed vs win rate")
+parser.add_argument("--db",   default="data/rathnakaragn.duckdb", help="Path to DuckDB file")
+parser.add_argument("--user", default="rathnakaragn",             help="Chess.com username")
+args = parser.parse_args()
+
+DB       = args.db
+USERNAME = args.user
 
 conn = duckdb.connect(DB, read_only=True)
 rows = conn.execute("""
