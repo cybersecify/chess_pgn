@@ -7,7 +7,7 @@ SELECT strftime(to_timestamp(end_time), '%Y-%m-%d') AS date,
        (CASE WHEN color = 'white' THEN white_elo ELSE black_elo END) AS elo_diff,
        opening
 FROM games
-WHERE (white = 'rathnakaragn' OR black = 'rathnakaragn')
+WHERE (white = $USERNAME OR black = $USERNAME)
   AND time_class = 'rapid' AND user_result = 'win'
   AND (CASE WHEN color = 'white' THEN black_elo ELSE white_elo END) >
       (CASE WHEN color = 'white' THEN white_elo ELSE black_elo END) + 100

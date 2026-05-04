@@ -1,13 +1,16 @@
 # Chess Game Analysis — SQL Reference
 
-Two ways to run queries:
+Two ways to run queries (username read from `CHESS_USERNAME` env var):
 
 ```bash
 # Inline SQL
-python main.py query "SELECT COUNT(*) FROM games" --db data/rathnakaragn.duckdb
+python main.py query "SELECT COUNT(*) FROM games"
 
-# From a file
-python main.py query queries/summary.sql --db data/rathnakaragn.duckdb
+# From a file — $USERNAME is substituted automatically
+python main.py query queries/summary.sql
+
+# Override username for one query
+python main.py query queries/summary.sql --username neopaque
 ```
 
 ---
@@ -29,7 +32,7 @@ python main.py query queries/summary.sql --db data/rathnakaragn.duckdb
 | `black_elo` | INTEGER | Black rating at game time |
 | `eco` | TEXT | ECO code (e.g. `B20`) |
 | `opening` | TEXT | Opening name (e.g. `Sicilian Defense`) |
-| `move_count` | INTEGER | Total half-moves |
+| `move_count` | INTEGER | Last full-move number (e.g. 2 for a game ending on move 2) |
 | `game_duration_secs` | INTEGER | Wall-clock duration |
 | `termination` | TEXT | How game ended |
 | `color` | TEXT | `white` or `black` (relative to tracked user) |
@@ -45,7 +48,7 @@ python main.py query queries/summary.sql --db data/rathnakaragn.duckdb
 Pre-built queries in the `queries/` directory. Run with:
 
 ```bash
-python main.py query queries/<file>.sql --db data/rathnakaragn.duckdb
+python main.py query queries/<file>.sql
 ```
 
 ### Basic Analysis
@@ -116,7 +119,8 @@ Run Python scripts directly (not via `query` command):
 
 > **Note:** `first_move_speed.py` parses `[%clk]` PGN annotations and runs as a standalone script:
 > ```bash
-> .venv/bin/python queries/first_move_speed.py --db data/<user>.duckdb --user <username>
+> .venv/bin/python queries/first_move_speed.py [--user <username>]
+> # username defaults to $CHESS_USERNAME
 > ```
 
 ---

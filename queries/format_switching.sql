@@ -5,7 +5,7 @@ WITH ordered AS (
          LAG(time_class) OVER (ORDER BY end_time) AS prev_format,
          LAG(end_time)   OVER (ORDER BY end_time) AS prev_end_time
   FROM games
-  WHERE (white = 'rathnakaragn' OR black = 'rathnakaragn')
+  WHERE (white = $USERNAME OR black = $USERNAME)
     AND user_result IS NOT NULL AND end_time IS NOT NULL
     AND time_class IN ('rapid', 'blitz', 'bullet')
 )

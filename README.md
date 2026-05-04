@@ -5,32 +5,42 @@ Download, store, and analyze your chess.com games using a local DuckDB database.
 ## Requirements
 
 - Python 3.11+
-- `duckdb` (installed via pip)
+- `uv` (recommended) or `pip`
 
 ## Setup
 
 ```bash
+# Using uv (recommended)
+uv sync
+
+# Or with pip
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install duckdb
+```
+
+Set your chess.com username once:
+
+```bash
+# Add to your shell profile or .envrc
+export CHESS_USERNAME=your_username
 ```
 
 ## Commands
 
-All commands use `python main.py <subcommand>`. The default username is `rathnakaragn`.
+All commands use `python main.py <subcommand>`. The username is read from `CHESS_USERNAME` or passed as a positional argument. The database is always at `./data/{username}.duckdb`.
 
 ### `sync` — Download games from chess.com
 
 ```bash
-python main.py sync [username] [--db PATH] [--since YYYYMMDD] [--until YYYYMMDD] [--force]
+python main.py sync [username] [--since YYYYMMDD] [--until YYYYMMDD] [--force]
 ```
 
-Downloads and stores games into a local DuckDB file (`./data/{username}.duckdb`). Already-cached months are skipped; only the current month is always re-fetched.
+Downloads and stores games into `./data/{username}.duckdb`. Already-cached months are skipped; only the current month is always re-fetched.
 
 | Flag | Description |
 |------|-------------|
-| `username` | Chess.com username (default: `rathnakaragn`) |
-| `--db` | Path to DuckDB file (default: `./data/{username}.duckdb`) |
+| `username` | Chess.com username (default: `$CHESS_USERNAME`) |
 | `--since` | Only sync archives on or after this date (`YYYYMMDD`) |
 | `--until` | Only sync archives on or before this date (`YYYYMMDD`) |
 | `--force` | Re-fetch all archives, ignoring the cache |
@@ -38,7 +48,7 @@ Downloads and stores games into a local DuckDB file (`./data/{username}.duckdb`)
 ### `export` — Export games as PGN
 
 ```bash
-python main.py export [username] [--db PATH] [--time-class TYPE] [--since YYYYMMDD] [--until YYYYMMDD] [-n N] [-o FILE]
+python main.py export [username] [--time-class TYPE] [--since YYYYMMDD] [--until YYYYMMDD] [-n N] [-o FILE]
 ```
 
 | Flag | Description |
@@ -51,7 +61,7 @@ python main.py export [username] [--db PATH] [--time-class TYPE] [--since YYYYMM
 ### `stats` — Game statistics dashboard
 
 ```bash
-python main.py stats [username] [--db PATH] [--time-class TYPE]
+python main.py stats [username] [--time-class TYPE]
 ```
 
 Displays a full analysis dashboard:
@@ -70,37 +80,37 @@ Displays a full analysis dashboard:
 ### `rating` — Current rating and monthly delta
 
 ```bash
-python main.py rating [username] [--db PATH]
+python main.py rating [username]
 ```
 
 ### `opponent` — Record against a specific player
 
 ```bash
-python main.py opponent <opponent_username> [--username YOUR_USERNAME] [--db PATH]
+python main.py opponent <opponent_username> [--username YOUR_USERNAME]
 ```
 
 ### `backfill` — Re-parse PGNs for derived columns
 
 ```bash
-python main.py backfill [username] [--db PATH]
+python main.py backfill [username]
 ```
 
 Useful after updating the code to populate new derived columns from already-stored PGNs.
 
-### `query` — Run raw SQL
+### `query` — Run raw SQL or a query file
 
 ```bash
-python main.py query "<SQL>" --db PATH
+python main.py query "<SQL>"
+python main.py query queries/summary.sql
 ```
+
+SQL files in `queries/` use `$USERNAME` as a placeholder which is automatically substituted with the active username.
 
 ## Examples
 
 ```bash
 # Sync all games
 python main.py sync
-
-# Sync only rapid games from 2025
-python main.py sync --since 20250101 --time-class rapid
 
 # Show rapid stats
 python main.py stats --time-class rapid
@@ -111,8 +121,15 @@ python main.py export --time-class rapid -n 50 -o recent_rapid.pgn
 # Record against a specific opponent
 python main.py opponent MagnusCarlsen
 
-# Raw SQL query
-python main.py query "SELECT opening, COUNT(*) FROM games GROUP BY 1 ORDER BY 2 DESC LIMIT 10" --db data/rathnakaragn.duckdb
+# Run a built-in analysis query
+python main.py query queries/tilt_detection.sql
+
+# Raw SQL
+python main.py query "SELECT opening, COUNT(*) FROM games GROUP BY 1 ORDER BY 2 DESC LIMIT 10"
+
+# Analyse a different user
+python main.py stats neopaque
+CHESS_USERNAME=neopaque python main.py query queries/summary.sql
 ```
 
 ## Project Structure
@@ -123,6 +140,7 @@ src/
   store.py        — DuckDB layer: schema, upsert, queries, stats
   cli.py          — CLI subcommands
 main.py           — entry point
+queries/          — 35 SQL analysis files (use $USERNAME placeholder)
 data/
   {username}.duckdb  — local game database (gitignored)
 tests/

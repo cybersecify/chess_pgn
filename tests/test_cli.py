@@ -133,12 +133,12 @@ class TestQuery:
         run_cli("query", "SELECT url FROM games")
         assert "https://chess.com/game/1" in capsys.readouterr().out
 
-    def test_query_invalid_sql_exits(self, tmp_path, monkeypatch):
+    def test_query_malformed_sql_exits(self, tmp_path, monkeypatch):
         monkeypatch.setenv("CHESS_USERNAME", "rathnakaragn")
         monkeypatch.chdir(tmp_path)
         seed_db(tmp_path)
         with pytest.raises(SystemExit) as exc:
-            run_cli("query", "SELECT FROM NOWHERE")
+            run_cli("query", "SELEC * FORM games")
         assert exc.value.code == 1
 
 
@@ -167,6 +167,26 @@ class TestBackfill:
         monkeypatch.chdir(tmp_path)
         with pytest.raises(SystemExit) as exc:
             run_cli("backfill", "rathnakaragn")
+        assert exc.value.code == 1
+
+
+class TestRating:
+    def test_rating_prints_current(self, tmp_path, monkeypatch, capsys):
+        monkeypatch.chdir(tmp_path)
+        seed_db(tmp_path, games=[{
+            **SAMPLE_GAME,
+            "pgn": '[WhiteElo "1200"]\n[BlackElo "1100"]\n\n1. e4 c5 *',
+        }])
+        run_cli("backfill", "rathnakaragn")
+        capsys.readouterr()
+        run_cli("rating", "rathnakaragn")
+        out = capsys.readouterr().out
+        assert "Rating for rathnakaragn" in out
+
+    def test_rating_missing_db_exits(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        with pytest.raises(SystemExit) as exc:
+            run_cli("rating", "rathnakaragn")
         assert exc.value.code == 1
 
 

@@ -104,6 +104,8 @@ def _parse_clock_times(pgn: str | None) -> tuple[int | None, int | None]:
     clocks = [_to_secs(c) for c in clocks_raw]
     white_last = clocks[0::2][-1] if clocks[0::2] else None
     black_last = clocks[1::2][-1] if clocks[1::2] else None
+    # Increment is intentionally ignored: used = initial - last_clock underestimates
+    # true time spent per move when there is an increment, but is consistent and simple.
     return (
         max(0, initial - white_last) if white_last is not None else None,
         max(0, initial - black_last) if black_last is not None else None,
@@ -438,13 +440,12 @@ def stats(conn: duckdb.DuckDBPyConnection, username: str, time_class: str | None
         pct = round(wins_count / games_cnt * 100, 1) if games_cnt else 0.0
         trend[tc_name][ym] = {"games": games_cnt, "win_pct": pct}
 
-    # Time of day (IST — DuckDB hour() uses local timezone, machine is IST)
     tod_rows = conn.execute(f"""
         SELECT
             CASE
-                WHEN hour(to_timestamp(end_time)) BETWEEN 6 AND 11 THEN 'morning'
-                WHEN hour(to_timestamp(end_time)) BETWEEN 12 AND 17 THEN 'afternoon'
-                WHEN hour(to_timestamp(end_time)) BETWEEN 18 AND 23 THEN 'evening'
+                WHEN hour(timezone('Asia/Kolkata', to_timestamp(end_time))) BETWEEN 6  AND 11 THEN 'morning'
+                WHEN hour(timezone('Asia/Kolkata', to_timestamp(end_time))) BETWEEN 12 AND 17 THEN 'afternoon'
+                WHEN hour(timezone('Asia/Kolkata', to_timestamp(end_time))) BETWEEN 18 AND 23 THEN 'evening'
                 ELSE 'night'
             END AS period,
             CASE WHEN white = ? THEN white_result ELSE black_result END AS outcome,
@@ -572,7 +573,7 @@ def stats(conn: duckdb.DuckDBPyConnection, username: str, time_class: str | None
         rating_range = {}
 
     dow_rows = conn.execute(f"""
-        SELECT dayofweek(to_timestamp(end_time)) AS dow,
+        SELECT dayofweek(timezone('Asia/Kolkata', to_timestamp(end_time))) AS dow,
                user_result, COUNT(*) AS cnt
         FROM games
         WHERE (white = ? OR black = ?) AND end_time IS NOT NULL

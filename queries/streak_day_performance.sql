@@ -3,7 +3,7 @@
 WITH unique_days AS (
   SELECT DISTINCT strftime(to_timestamp(end_time), '%Y-%m-%d')::DATE AS play_date
   FROM games
-  WHERE (white = 'rathnakaragn' OR black = 'rathnakaragn')
+  WHERE (white = $USERNAME OR black = $USERNAME)
     AND time_class = 'rapid' AND end_time IS NOT NULL
 ),
 with_prev AS (
@@ -28,7 +28,7 @@ bucketed AS (
   FROM games g
   JOIN with_day_num d
     ON strftime(to_timestamp(g.end_time), '%Y-%m-%d')::DATE = d.play_date
-  WHERE (g.white = 'rathnakaragn' OR g.black = 'rathnakaragn')
+  WHERE (g.white = $USERNAME OR g.black = $USERNAME)
     AND g.time_class = 'rapid' AND g.user_result IS NOT NULL
 )
 SELECT

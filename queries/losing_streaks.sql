@@ -4,7 +4,7 @@ WITH ranked AS (
          ROW_NUMBER() OVER (ORDER BY end_time) -
          ROW_NUMBER() OVER (PARTITION BY user_result ORDER BY end_time) AS grp
   FROM games
-  WHERE (white = 'rathnakaragn' OR black = 'rathnakaragn')
+  WHERE (white = $USERNAME OR black = $USERNAME)
     AND time_class = 'rapid' AND user_result IS NOT NULL
 ),
 streaks AS (

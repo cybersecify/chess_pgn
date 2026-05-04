@@ -16,9 +16,6 @@ import duckdb
 from src.downloader import _api_get, API_BASE
 from src import store
 
-DEFAULT_USERNAME = os.environ.get("CHESS_USERNAME", "")
-
-
 def _default_db(username: str) -> str:
     return f"./data/{username}.duckdb"
 
@@ -42,7 +39,11 @@ def _open_existing_db(db_path: str) -> duckdb.DuckDBPyConnection:
         print(f"Error: database not found at {db_path}. Run 'sync' first.",
               file=sys.stderr)
         sys.exit(1)
-    return store.init_db(db_path)
+    try:
+        return store.init_db(db_path)
+    except duckdb.Error as e:
+        print(f"Error: database file appears corrupt ({e}).", file=sys.stderr)
+        sys.exit(1)
 
 
 def _archive_ym(url: str) -> str:
@@ -91,7 +92,12 @@ def cmd_sync(args: argparse.Namespace) -> None:
         total_new = 0
         for i, url in enumerate(to_fetch, 1):
             ym = _archive_ym(url)
-            data = _api_get(url)
+            try:
+                data = _api_get(url)
+            except RuntimeError as e:
+                print(f"  [{i}/{len(to_fetch)}] {ym[:4]}/{ym[4:]}: skipped ({e})",
+                      file=sys.stderr)
+                continue
             games = data.get("games", [])
             new = store.upsert_games(conn, games, username=username)
             total_new += new
@@ -137,7 +143,8 @@ def cmd_query(args: argparse.Namespace) -> None:
                 sql = p.read_text()
         except OSError:
             pass
-    conn = _open_existing_db(_default_db(os.environ.get("CHESS_USERNAME", "")))
+    sql = sql.replace("$USERNAME", f"'{args.username}'")
+    conn = _open_existing_db(_default_db(args.username))
     try:
         try:
             rows = store.raw_sql(conn, sql)
@@ -352,6 +359,8 @@ def main() -> None:
     # query
     p_query = sub.add_parser("query", help="Run raw SQL against the DB")
     p_query.add_argument("sql", help="SQL query string or path to .sql file")
+    p_query.add_argument("--username", default=default_user,
+                         help="Chess.com username (sets DB path and $USERNAME substitution)")
     p_query.set_defaults(func=cmd_query)
 
     # stats

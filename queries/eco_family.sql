@@ -14,7 +14,7 @@ SELECT LEFT(eco, 1) AS family,
        SUM(CASE WHEN user_result = 'draw' THEN 1 ELSE 0 END) AS draws,
        ROUND(100.0 * SUM(CASE WHEN user_result = 'win' THEN 1 ELSE 0 END) / COUNT(*), 1) AS win_pct
 FROM games
-WHERE (white = 'rathnakaragn' OR black = 'rathnakaragn')
+WHERE (white = $USERNAME OR black = $USERNAME)
   AND time_class = 'rapid' AND eco IS NOT NULL AND user_result IS NOT NULL
 GROUP BY family, description
 ORDER BY family

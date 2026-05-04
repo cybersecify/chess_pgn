@@ -5,7 +5,7 @@ SELECT strftime(to_timestamp(end_time), '%Y-%m-%d') AS date,
        CASE WHEN color = 'white' THEN black_elo ELSE white_elo END AS opp_elo,
        opening
 FROM games
-WHERE (white = 'rathnakaragn' OR black = 'rathnakaragn')
+WHERE (white = $USERNAME OR black = $USERNAME)
   AND time_class = 'rapid' AND end_time IS NOT NULL
 ORDER BY end_time DESC
 LIMIT 30

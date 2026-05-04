@@ -425,17 +425,18 @@ class TestStats:
         assert has_current
 
     def test_time_of_day_counts_wins(self, conn):
-        # end_time 1704067200 = 2024-01-01 00:00:00 UTC = 05:30 IST => hour=5 => 'night'
+        # 1704092400 = 2024-01-01 07:00:00 UTC = 12:30 IST => hour=12 => 'afternoon'
+        # Without the timezone fix (UTC machine) hour=7 => 'morning', proving IST is explicit.
         upsert_games(conn, [make_game(
-            url="u_night",
-            end_time=1704067200,
+            url="u_afternoon",
+            end_time=1704092400,
             white={"username": "rathnakaragn", "result": "win"},
             black={"username": "opp", "result": "lose"},
         )])
         result = stats(conn, "rathnakaragn")
         assert "time_of_day" in result
         assert isinstance(result["time_of_day"], dict)
-        assert result["time_of_day"]["night"]["win"] == 1
+        assert result["time_of_day"]["afternoon"]["win"] == 1
 
     def test_game_phase_losses_opening(self, conn):
         # make_game has move_count=2 (from "2. Nf3" in PGN) => opening phase (<=15)

@@ -11,7 +11,7 @@ SELECT
   SUM(CASE WHEN user_result = 'win' THEN 1 ELSE 0 END) AS wins,
   ROUND(100.0 * SUM(CASE WHEN user_result = 'win' THEN 1 ELSE 0 END) / COUNT(*), 1) AS win_pct
 FROM games
-WHERE (white = 'rathnakaragn' OR black = 'rathnakaragn')
+WHERE (white = $USERNAME OR black = $USERNAME)
   AND time_class = 'rapid' AND color IS NOT NULL AND user_result IS NOT NULL
   AND white_time_used_secs IS NOT NULL AND black_time_used_secs IS NOT NULL
   AND time_control NOT LIKE '%/%'

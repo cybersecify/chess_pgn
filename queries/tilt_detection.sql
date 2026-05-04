@@ -4,7 +4,7 @@ WITH ordered AS (
   SELECT end_time, user_result,
          LAG(user_result) OVER (ORDER BY end_time) AS prev_result
   FROM games
-  WHERE (white = 'rathnakaragn' OR black = 'rathnakaragn')
+  WHERE (white = $USERNAME OR black = $USERNAME)
     AND time_class = 'rapid' AND user_result IS NOT NULL AND end_time IS NOT NULL
 )
 SELECT prev_result AS after_a,

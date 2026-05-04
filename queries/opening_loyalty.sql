@@ -9,7 +9,7 @@ SELECT opening,
          ELSE                     'Experiment (1-4 games)'
        END AS loyalty
 FROM games
-WHERE (white = 'rathnakaragn' OR black = 'rathnakaragn')
+WHERE (white = $USERNAME OR black = $USERNAME)
   AND time_class = 'rapid' AND opening IS NOT NULL AND user_result IS NOT NULL
 GROUP BY opening
 ORDER BY games DESC
