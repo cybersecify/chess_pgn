@@ -294,6 +294,72 @@ python main.py query queries/fresh_vs_repeat.sql
 
 ---
 
+### 17. Missed Mates (Mate in 1 & 2)
+
+**Question:** How often do I have a forced checkmate but don't play it?
+
+This analysis requires a one-time scan of all PGNs using python-chess. Run it once; results are stored in the database and all follow-up queries are instant.
+
+```bash
+# First-time scan (takes ~2 minutes for 1600 games)
+.venv/bin/python queries/missed_mates.py
+
+# Re-run to pick up newly synced games
+.venv/bin/python queries/missed_mates.py
+
+# Force full re-analysis from scratch
+.venv/bin/python queries/missed_mates.py --force
+```
+
+Once the table is populated, query it:
+
+```bash
+# Monthly summary
+python main.py query queries/missed_mates_summary.sql
+
+# Which openings produce the most missed mates
+python main.py query queries/missed_mates_by_opening.sql
+
+# Recent missed mates with game links
+python main.py query queries/missed_mates_recent.sql
+
+# Breakdown by game phase
+python main.py query "
+SELECT
+  CASE WHEN move_number < 15 THEN 'opening (<15)'
+       WHEN move_number < 30 THEN 'middlegame (15-29)'
+       ELSE 'endgame (30+)' END AS phase,
+  SUM(CASE WHEN mate_in = 1 THEN 1 ELSE 0 END) AS missed_m1,
+  SUM(CASE WHEN mate_in = 2 THEN 1 ELSE 0 END) AS missed_m2,
+  COUNT(*) AS total
+FROM missed_mates
+GROUP BY phase ORDER BY total DESC
+"
+
+# Browse a specific game's misses
+python main.py query "SELECT move_number, mate_in, best_move, played_move, fen FROM missed_mates WHERE game_url = '<url>'"
+```
+
+**Schema of `missed_mates` table:**
+| Column | Description |
+|--------|-------------|
+| `game_url` | Link to the game on chess.com |
+| `end_time` | Unix timestamp of the game |
+| `opening` | Opening name |
+| `color` | Your color in that game |
+| `opponent` | Opponent username |
+| `move_number` | Full-move number where the mate was missed |
+| `mate_in` | 1 or 2 |
+| `fen` | Board position FEN — paste into any chess board viewer |
+| `best_move` | The mating move you should have played (SAN) |
+| `played_move` | What you actually played (SAN) |
+
+**How to study a missed mate:** Copy the `fen` into [lichess.org/analysis](https://lichess.org/analysis) or the chess.com analysis board. Verify the forced mate, then play through a few lines to understand why it works. One session of 5–10 missed mates is more effective than an hour of tactics puzzles from a random source because these are your own blind spots.
+
+**Limitation:** The script uses pure move generation (no engine), so it reliably finds M1 and M2s that start with checks or forcing moves. Quiet M2 first moves (non-check threats) may occasionally be missed — for 100% coverage, run Stockfish analysis on chess.com for individual games.
+
+---
+
 ## Ad-hoc SQL
 
 For anything not covered by a pre-built query, use the `query` subcommand with inline SQL or a custom `.sql` file. `$USERNAME` is substituted automatically.

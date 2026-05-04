@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Download chess.com games as PGN"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["duckdb>=1.0.0"]
+dependencies = ["duckdb>=1.0.0", "chess>=1.0.0"]
 
 [project.scripts]
 chess-pgn = "src.cli:main"
