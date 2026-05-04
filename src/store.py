@@ -10,6 +10,7 @@ from pathlib import Path
 import duckdb
 
 _LOSS_RESULTS = {"lose", "checkmated", "timeout", "resigned", "abandoned"}
+_DOW_NAMES = {0: "Sun", 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat"}
 
 
 def _derive_player_fields(
@@ -579,10 +580,9 @@ def stats(conn: duckdb.DuckDBPyConnection, username: str, time_class: str | None
         GROUP BY dow, user_result
     """, [username, username] + tc_params).fetchall()
 
-    _dow_names = {0: "Sun", 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat"}
     day_of_week: dict = {}
     for dow_int, outcome, cnt in dow_rows:
-        name = _dow_names.get(int(dow_int), str(dow_int))
+        name = _DOW_NAMES.get(dow_int, str(dow_int))
         if name not in day_of_week:
             day_of_week[name] = {"win": 0, "lose": 0, "draw": 0}
         key = "win" if outcome == "win" else ("lose" if outcome in _LOSS_RESULTS else "draw")
