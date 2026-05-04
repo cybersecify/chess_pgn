@@ -504,6 +504,10 @@ class TestStats:
         assert result["time_pressure"]["< 30%"]["win"] == 1
         assert result["time_pressure"]["30-70%"]["win"] == 0
 
+    def test_time_pressure_empty_when_no_clock_data(self, conn):
+        result = stats(conn, "rathnakaragn")
+        assert result["time_pressure"] == {}
+
 
 class TestMigrateDb:
     def test_adds_missing_columns_to_old_schema(self):
