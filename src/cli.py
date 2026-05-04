@@ -221,6 +221,17 @@ def cmd_stats(args: argparse.Namespace) -> None:
                 pct = counts["win"] / total_b * 100
                 print(f"  {bucket:8s}  W:{counts['win']}  L:{counts['lose']}  "
                       f"D:{counts['draw']}  ({pct:.0f}%)")
+        if result["rating_range"]:
+            print("\nvs opponent rating:")
+            labels = {"much weaker": "< -100", "similar": "  ±100", "much stronger": "> +100"}
+            for bucket in ["much weaker", "similar", "much stronger"]:
+                counts = result["rating_range"].get(bucket, {"win": 0, "lose": 0, "draw": 0})
+                total_b = sum(counts.values())
+                if total_b == 0:
+                    continue
+                pct = counts["win"] / total_b * 100
+                print(f"  {bucket:14s} ({labels[bucket]})  W:{counts['win']}  "
+                      f"L:{counts['lose']}  D:{counts['draw']}  ({pct:.0f}%)")
     finally:
         conn.close()
 

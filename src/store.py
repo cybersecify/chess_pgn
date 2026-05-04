@@ -550,6 +550,26 @@ def stats(conn: duckdb.DuckDBPyConnection, username: str, time_class: str | None
     if not any(sum(v.values()) for v in time_pressure.values()):
         time_pressure = {}
 
+    rating_rows = conn.execute(f"""
+        SELECT color, user_result, white_elo, black_elo
+        FROM games
+        WHERE color IS NOT NULL AND user_result IS NOT NULL
+          AND white_elo IS NOT NULL AND black_elo IS NOT NULL
+          AND (white = ? OR black = ?) {tc_filter}
+    """, [username, username] + tc_params).fetchall()
+
+    rating_range: dict = {k: {"win": 0, "lose": 0, "draw": 0}
+                          for k in ["much weaker", "similar", "much stronger"]}
+    for color_val, outcome, white_elo_val, black_elo_val in rating_rows:
+        user_elo = white_elo_val if color_val == "white" else black_elo_val
+        opp_elo  = black_elo_val if color_val == "white" else white_elo_val
+        diff = opp_elo - user_elo
+        bucket = "much weaker" if diff < -100 else ("much stronger" if diff > 100 else "similar")
+        key = "win" if outcome == "win" else ("lose" if outcome in _LOSS_RESULTS else "draw")
+        rating_range[bucket][key] += 1
+    if not any(sum(v.values()) for v in rating_range.values()):
+        rating_range = {}
+
     return {
         "total": total,
         "by_time_class": by_time_class,
@@ -563,6 +583,7 @@ def stats(conn: duckdb.DuckDBPyConnection, username: str, time_class: str | None
         "best_openings": best_opening_rows,
         "worst_openings": worst_opening_rows,
         "time_pressure": time_pressure,
+        "rating_range": rating_range,
     }
 
 

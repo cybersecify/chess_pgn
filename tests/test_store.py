@@ -508,6 +508,32 @@ class TestStats:
         result = stats(conn, "rathnakaragn")
         assert result["time_pressure"] == {}
 
+    def test_rating_range(self, conn):
+        # rathnakaragn=1200 (white), opp=900 (black) → diff = 900-1200 = -300 → "much weaker"
+        upsert_games(conn, [make_game(
+            url="u_rating",
+            pgn=(
+                '[ECO "B20"]\n'
+                '[ECOUrl "https://www.chess.com/openings/Sicilian-Defense"]\n'
+                '[WhiteElo "1200"]\n'
+                '[BlackElo "900"]\n'
+                '[UTCDate "2024.01.01"]\n'
+                '[StartTime "00:00:00"]\n'
+                '[EndDate "2024.01.01"]\n'
+                '[EndTime "00:15:00"]\n'
+                '[Termination "rathnakaragn won by resignation"]\n'
+                '[TimeControl "600"]\n'
+                '\n'
+                '1. e4 {[%clk 0:09:50]} 1... c5 {[%clk 0:09:40]} 2. Nf3 {[%clk 0:09:30]} *'
+            ),
+            white={"username": "rathnakaragn", "result": "win"},
+            black={"username": "opp", "result": "lose"},
+        )], username="rathnakaragn")
+        result = stats(conn, "rathnakaragn")
+        assert "rating_range" in result
+        assert result["rating_range"]["much weaker"]["win"] == 1
+        assert result["rating_range"]["similar"]["win"] == 0
+
 
 class TestMigrateDb:
     def test_adds_missing_columns_to_old_schema(self):
