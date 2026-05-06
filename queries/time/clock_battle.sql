@@ -9,7 +9,7 @@ WITH clock AS (
     END AS clock_ratio
   FROM games
   WHERE (white = $USERNAME OR black = $USERNAME)
-    AND time_class = 'rapid'
+    AND time_class = $TIME_CLASS
     AND user_result IS NOT NULL
     AND white_time_used_secs > 30 AND black_time_used_secs > 30
 ),

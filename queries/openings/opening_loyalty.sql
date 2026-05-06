@@ -10,6 +10,6 @@ SELECT opening,
        END AS loyalty
 FROM games
 WHERE (white = $USERNAME OR black = $USERNAME)
-  AND time_class = 'rapid' AND opening IS NOT NULL AND user_result IS NOT NULL
+  AND time_class = $TIME_CLASS AND opening IS NOT NULL AND user_result IS NOT NULL
 GROUP BY opening
 ORDER BY games DESC

@@ -15,6 +15,6 @@ SELECT
   ROUND(100.0 * SUM(CASE WHEN user_result = 'win' THEN 1 ELSE 0 END) / COUNT(*), 1) AS win_pct
 FROM games
 WHERE (white = $USERNAME OR black = $USERNAME)
-  AND time_class = 'rapid' AND user_result IS NOT NULL AND opponent IS NOT NULL
+  AND time_class = $TIME_CLASS AND user_result IS NOT NULL AND opponent IS NOT NULL
 GROUP BY opponent_title
 ORDER BY opponent_title

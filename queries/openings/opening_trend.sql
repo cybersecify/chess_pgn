@@ -6,13 +6,13 @@ WITH half_years AS (
            CASE WHEN CAST(strftime(to_timestamp(end_time), '%m') AS INTEGER) <= 6 THEN 1 ELSE 2 END AS half
   FROM games
   WHERE (white = $USERNAME OR black = $USERNAME)
-    AND time_class = 'rapid' AND opening IS NOT NULL AND user_result IS NOT NULL
+    AND time_class = $TIME_CLASS AND opening IS NOT NULL AND user_result IS NOT NULL
 ),
 top_openings AS (
   SELECT opening
   FROM games
   WHERE (white = $USERNAME OR black = $USERNAME)
-    AND time_class = 'rapid' AND opening IS NOT NULL
+    AND time_class = $TIME_CLASS AND opening IS NOT NULL
   GROUP BY opening
   HAVING COUNT(*) >= 10
   ORDER BY COUNT(*) DESC

@@ -6,7 +6,7 @@ WITH ordered AS (
          LAG(color)       OVER (ORDER BY end_time) AS prev_color
   FROM games
   WHERE (white = $USERNAME OR black = $USERNAME)
-    AND time_class = 'rapid' AND user_result IS NOT NULL
+    AND time_class = $TIME_CLASS AND user_result IS NOT NULL
     AND color IS NOT NULL AND end_time IS NOT NULL
 )
 SELECT

@@ -11,7 +11,7 @@ WITH categorised AS (
     END AS how
   FROM games
   WHERE (white = $USERNAME OR black = $USERNAME)
-    AND time_class = 'rapid' AND user_result IS NOT NULL
+    AND time_class = $TIME_CLASS AND user_result IS NOT NULL
 )
 SELECT how,
        SUM(CASE WHEN user_result = 'win'  THEN 1 ELSE 0 END) AS wins,

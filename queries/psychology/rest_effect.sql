@@ -5,7 +5,7 @@ WITH ordered AS (
          LAG(end_time) OVER (ORDER BY end_time) AS prev_end_time
   FROM games
   WHERE (white = $USERNAME OR black = $USERNAME)
-    AND time_class = 'rapid' AND user_result IS NOT NULL AND end_time IS NOT NULL
+    AND time_class = $TIME_CLASS AND user_result IS NOT NULL AND end_time IS NOT NULL
 )
 SELECT
   CASE

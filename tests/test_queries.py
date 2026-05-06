@@ -185,13 +185,18 @@ def conn():
     c.close()
 
 
-def substitute_username(sql: str) -> str:
-    return re.sub(r"\$USERNAME", f"'{USERNAME}'", sql)
+TIME_CLASS = "rapid"
+
+
+def substitute_placeholders(sql: str) -> str:
+    sql = sql.replace("$USERNAME", f"'{USERNAME}'")
+    sql = sql.replace("$TIME_CLASS", f"'{TIME_CLASS}'")
+    return sql
 
 
 @pytest.mark.parametrize("sql_file", SQL_FILES, ids=lambda p: str(p.relative_to(QUERIES_DIR)))
 def test_query_executes(conn, sql_file):
-    sql = substitute_username(sql_file.read_text())
+    sql = substitute_placeholders(sql_file.read_text())
     # Queries with HAVING COUNT(*) >= N may return empty results — that is fine.
     # We only assert no exception is raised.
     conn.execute(sql).fetchall()

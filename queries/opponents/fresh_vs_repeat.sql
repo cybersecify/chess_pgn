@@ -5,7 +5,7 @@ WITH opponent_history AS (
          ROW_NUMBER() OVER (PARTITION BY opponent ORDER BY end_time) AS game_num
   FROM games
   WHERE (white = $USERNAME OR black = $USERNAME)
-    AND time_class = 'rapid' AND user_result IS NOT NULL AND end_time IS NOT NULL
+    AND time_class = $TIME_CLASS AND user_result IS NOT NULL AND end_time IS NOT NULL
 )
 SELECT
   CASE

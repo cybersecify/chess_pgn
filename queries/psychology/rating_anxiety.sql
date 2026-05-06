@@ -5,7 +5,7 @@ WITH my_elo AS (
          CASE WHEN color = 'white' THEN white_elo ELSE black_elo END AS elo
   FROM games
   WHERE (white = $USERNAME OR black = $USERNAME)
-    AND time_class = 'rapid' AND user_result IS NOT NULL
+    AND time_class = $TIME_CLASS AND user_result IS NOT NULL
     AND white_elo IS NOT NULL AND black_elo IS NOT NULL AND color IS NOT NULL
 ),
 with_zone AS (

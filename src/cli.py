@@ -144,6 +144,7 @@ def cmd_query(args: argparse.Namespace) -> None:
         except OSError:
             pass
     sql = sql.replace("$USERNAME", f"'{args.username}'")
+    sql = sql.replace("$TIME_CLASS", f"'{args.time_class}'")
     conn = _open_existing_db(_default_db(args.username))
     try:
         try:
@@ -327,6 +328,7 @@ def cmd_opponent(args: argparse.Namespace) -> None:
 def main() -> None:
     # Re-read from env each call so monkeypatching works in tests.
     default_user = os.environ.get("CHESS_USERNAME", "")
+    default_time_class = os.environ.get("CHESS_TIME_CLASS", "rapid")
 
     ap = argparse.ArgumentParser(
         description="Chess.com game downloader and analyzer."
@@ -361,6 +363,9 @@ def main() -> None:
     p_query.add_argument("sql", help="SQL query string or path to .sql file")
     p_query.add_argument("--username", default=default_user,
                          help="Chess.com username (sets DB path and $USERNAME substitution)")
+    p_query.add_argument("--time-class", dest="time_class", default=default_time_class,
+                         choices=["bullet", "blitz", "rapid", "daily"],
+                         help="Time control for $TIME_CLASS substitution (default: $CHESS_TIME_CLASS or rapid)")
     p_query.set_defaults(func=cmd_query)
 
     # stats

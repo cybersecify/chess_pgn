@@ -5,7 +5,7 @@ WITH ranked AS (
          ROW_NUMBER() OVER (PARTITION BY user_result ORDER BY end_time) AS grp
   FROM games
   WHERE (white = $USERNAME OR black = $USERNAME)
-    AND time_class = 'rapid' AND user_result IS NOT NULL
+    AND time_class = $TIME_CLASS AND user_result IS NOT NULL
 ),
 streaks AS (
   SELECT user_result, COUNT(*) AS streak_len,

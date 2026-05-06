@@ -6,7 +6,7 @@ WITH ordered AS (
          LAG(user_result) OVER (ORDER BY end_time) AS prev_result
   FROM games
   WHERE (white = $USERNAME OR black = $USERNAME)
-    AND time_class = 'rapid' AND user_result IS NOT NULL AND opponent IS NOT NULL
+    AND time_class = $TIME_CLASS AND user_result IS NOT NULL AND opponent IS NOT NULL
 )
 SELECT prev_result AS first_game_result,
        COUNT(*) AS rematches,

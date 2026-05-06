@@ -11,7 +11,7 @@ SELECT strftime(to_timestamp(end_time), '%Y-%m') AS month,
        END AS volume_band
 FROM games
 WHERE (white = $USERNAME OR black = $USERNAME)
-  AND time_class = 'rapid' AND user_result IS NOT NULL AND end_time IS NOT NULL
+  AND time_class = $TIME_CLASS AND user_result IS NOT NULL AND end_time IS NOT NULL
 GROUP BY month
 HAVING COUNT(*) >= 5
 ORDER BY month DESC

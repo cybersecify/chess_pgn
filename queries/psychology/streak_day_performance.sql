@@ -4,7 +4,7 @@ WITH unique_days AS (
   SELECT DISTINCT strftime(to_timestamp(end_time), '%Y-%m-%d')::DATE AS play_date
   FROM games
   WHERE (white = $USERNAME OR black = $USERNAME)
-    AND time_class = 'rapid' AND end_time IS NOT NULL
+    AND time_class = $TIME_CLASS AND end_time IS NOT NULL
 ),
 with_prev AS (
   SELECT play_date,
@@ -29,7 +29,7 @@ bucketed AS (
   JOIN with_day_num d
     ON strftime(to_timestamp(g.end_time), '%Y-%m-%d')::DATE = d.play_date
   WHERE (g.white = $USERNAME OR g.black = $USERNAME)
-    AND g.time_class = 'rapid' AND g.user_result IS NOT NULL
+    AND g.time_class = $TIME_CLASS AND g.user_result IS NOT NULL
 )
 SELECT
   CASE bucket WHEN 5 THEN 'Day 5+ (long streak)' ELSE 'Day ' || CAST(bucket AS VARCHAR) END AS day_in_streak,
