@@ -101,10 +101,18 @@ Useful after updating the code to populate new derived columns from already-stor
 
 ```bash
 python main.py query "<SQL>"
-python main.py query queries/summary.sql
+python main.py query queries/general/summary.sql
+python main.py query queries/general/summary.sql --time-class blitz
 ```
 
-SQL files in `queries/` use `$USERNAME` as a placeholder which is automatically substituted with the active username.
+| Flag | Description |
+|------|-------------|
+| `--username` | Override active username for this query |
+| `--time-class` | Override time class (`bullet`, `blitz`, `rapid`, `daily`; default: `$CHESS_TIME_CLASS` or `rapid`) |
+
+SQL files use two placeholders substituted at runtime:
+- `$USERNAME` — replaced with the active username
+- `$TIME_CLASS` — replaced with the active time class
 
 ## Examples
 
@@ -130,6 +138,9 @@ python main.py query "SELECT opening, COUNT(*) FROM games GROUP BY 1 ORDER BY 2 
 # Analyse a different user
 python main.py stats neopaque
 CHESS_USERNAME=neopaque python main.py query queries/general/summary.sql
+
+# Run a query for blitz instead of rapid
+python main.py query queries/performance/monthly_trend.sql --time-class blitz
 ```
 
 ## Project Structure
@@ -154,6 +165,7 @@ tests/
   test_store.py      — store unit tests (in-memory DuckDB)
   test_cli.py        — CLI integration tests
   test_downloader.py — API client unit tests
+  test_queries.py    — smoke tests for all 94 SQL query files
 ```
 
 See `SKILL.md` for a full guide on which queries to run and how to interpret results.
