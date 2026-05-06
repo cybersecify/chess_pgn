@@ -7,7 +7,7 @@ WITH base AS (
   WHERE white = $USERNAME
     AND regexp_matches(pgn, '(^|[\s}])2\. Qh5')
     AND pgn LIKE '%1. e4%'
-    AND time_class = 'blitz'
+    AND time_class = $TIME_CLASS
 )
 SELECT
   response                                                                              AS black_plays,
