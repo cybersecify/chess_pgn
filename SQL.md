@@ -7,10 +7,10 @@ Run queries with `CHESS_USERNAME` set (or pass `--username`):
 python main.py query "SELECT COUNT(*) FROM games WHERE white = $USERNAME OR black = $USERNAME"
 
 # From a file
-python main.py query queries/summary.sql
+python main.py query queries/general/summary.sql
 
 # Override username for one query
-python main.py query queries/summary.sql --username neopaque
+python main.py query queries/general/summary.sql --username neopaque
 ```
 
 ---
@@ -32,7 +32,7 @@ python main.py query queries/summary.sql --username neopaque
 | `black_elo` | INTEGER | Black rating at game time |
 | `eco` | TEXT | ECO code (e.g. `B20`) |
 | `opening` | TEXT | Opening name (e.g. `Sicilian Defense`) |
-| `move_count` | INTEGER | Last full-move number (e.g. `2` for a game ending on move 2) |
+| `move_count` | INTEGER | Last full-move number |
 | `game_duration_secs` | INTEGER | Wall-clock duration in seconds |
 | `termination` | TEXT | How game ended |
 | `color` | TEXT | `white` or `black` (relative to tracked user) |
@@ -45,87 +45,176 @@ python main.py query queries/summary.sql --username neopaque
 
 ## Query Files
 
-Pre-built queries in the `queries/` directory. All use `$USERNAME` which is substituted with the active username at runtime.
+94 pre-built queries organised into 7 categories. All use `$USERNAME` substituted at runtime.
 
 ```bash
-python main.py query queries/<file>.sql
+python main.py query queries/<category>/<file>.sql
 ```
 
-### Basic Analysis
+### General
 
 | File | Description |
 |------|-------------|
-| `summary.sql` | W/L/D and win% by time control |
-| `monthly_trend.sql` | Monthly win rate (rapid, last 12 months) |
-| `recent_games.sql` | Last 30 rapid games with rating and opening |
+| `general/summary.sql` | W/L/D and win% by time control |
+| `general/recent_games.sql` | Last 30 rapid games with rating and opening |
 
-### Openings
+### Performance
 
 | File | Description |
 |------|-------------|
-| `openings_best.sql` | Best openings by win rate (min 10 games) |
-| `openings_worst.sql` | Worst openings by win rate (min 10 games) |
-| `openings_by_color.sql` | Opening win rate split by color |
-| `opening_loyalty.sql` | Core repertoire vs regular vs one-off experiments |
-| `draw_by_opening.sql` | Openings with highest draw rate |
-| `eco_family.sql` | Performance by ECO family (A/B/C/D/E) |
+| `performance/monthly_trend.sql` | Monthly win rate (rapid, last 12 months) |
+| `performance/rating_history.sql` | Monthly rating high/low (rapid) |
+| `performance/rating_momentum.sql` | Rolling 10-game win% — hot/cold streaks |
+| `performance/draw_by_rating.sql` | Draw rate vs weaker/equal/stronger |
+| `performance/format_switching.sql` | First-of-session vs warmed-up win rate |
+| `performance/game_length_sweet_spot.sql` | Win rate by move count bucket |
+| `performance/termination_breakdown.sql` | How games end — resignation/checkmate/timeout |
+| `performance/volume_vs_quality.sql` | Monthly game count vs win rate |
+
+### Openings — General
+
+| File | Description |
+|------|-------------|
+| `openings/openings_best.sql` | Best openings by win% (min 10 games) |
+| `openings/openings_worst.sql` | Worst openings by win% |
+| `openings/openings_by_color.sql` | Opening win% split by color |
+| `openings/opening_loyalty.sql` | Core repertoire vs regular vs one-off |
+| `openings/opening_trend.sql` | Win% by 6-month period per opening |
+| `openings/draw_by_opening.sql` | Openings with highest draw rate |
+| `openings/eco_family.sql` | Performance by ECO family (A/B/C/D/E) |
+
+### Openings — White Responses
+
+| File | Description |
+|------|-------------|
+| `openings/white_responses/white_first_move_summary.sql` | Your 2nd move vs every Black reply |
+| `openings/white_responses/vs_e5_wayward_queen.sql` | WQ monthly trend by time class |
+| `openings/white_responses/vs_d5_gap.sql` | Biggest gap — responses to 1...d5 |
+| `openings/white_responses/vs_c5_sicilian.sql` | Responses to 1...c5 Sicilian |
+| `openings/white_responses/vs_nc6_gap.sql` | Responses to 1...Nc6 (5-move chaos) |
+| `openings/white_responses/vs_c6_e6.sql` | Consistent d4 system vs 1...c6/e6 |
+| `openings/white_responses/white_move_sequence_wins_vs_losses.sql` | WQ moves 3-8 win% per move choice |
+
+### Openings — Black Responses
+
+| File | Description |
+|------|-------------|
+| `openings/black_responses/black_first_move_summary.sql` | Your reply to every White first move |
+| `openings/black_responses/vs_e4_scandinavian.sql` | Scandinavian monthly trend |
+| `openings/black_responses/vs_d4_replies.sql` | Replies to 1.d4 — c5 vs d5 |
+| `openings/black_responses/vs_nf3_gap.sql` | Biggest gap — vs 1.Nf3 (26% win rate) |
+| `openings/black_responses/vs_nc3_gap.sql` | Second gap — vs 1.Nc3 (~22%) |
+| `openings/black_responses/vs_c4_strong.sql` | Strongest area — vs 1.c4 (71%) |
+| `openings/black_responses/black_move_sequence_wins_vs_losses.sql` | Scandinavian moves 2-6 win% |
+
+### Openings — Traps
+
+| File | Description |
+|------|-------------|
+| `openings/traps/wayward_queen_attack/wayward_queen.sql` | WQ summary by format |
+| `openings/traps/wayward_queen_attack/wayward_queen_monthly.sql` | Monthly win rate trend |
+| `openings/traps/wayward_queen_attack/wayward_queen_responses.sql` | Black's 2nd move and win rate |
+| `openings/traps/wayward_queen_attack/wayward_queen_opp_rating.sql` | Win% by opponent ELO bucket |
+| `openings/traps/wayward_queen_attack/wayward_queen_length.sql` | Win% by game length |
+| `openings/traps/wayward_queen_attack/wayward_queen_termination.sql` | How WQ games end |
+| `openings/traps/wayward_queen_attack/wayward_queen_posttrap.sql` | Post-trap conversion rate |
+| `openings/traps/wayward_queen_attack/wayward_queen_recent.sql` | 20 most recent WQ games |
+| `openings/traps/wayward_queen_attack/wayward_queen_top_wins.sql` | Highest rated opponents beaten |
+| `openings/traps/wayward_queen_attack/wayward_queen_overall_monthly.sql` | All-termination monthly trend |
+
+### Openings — Gambits
+
+| File | Description |
+|------|-------------|
+| `openings/gambits/icelandic_gambit/icelandic_gambit.sql` | Icelandic summary by format (Black) |
+| `openings/gambits/icelandic_gambit/icelandic_gambit_monthly.sql` | Monthly trend |
+| `openings/gambits/icelandic_gambit/icelandic_gambit_responses.sql` | White's 4th move responses |
+| `openings/gambits/icelandic_gambit/icelandic_gambit_opp_rating.sql` | Win% by ELO |
+| `openings/gambits/icelandic_gambit/icelandic_gambit_length.sql` | Win% by game length |
+| `openings/gambits/icelandic_gambit/icelandic_gambit_termination.sql` | How games end |
+| `openings/gambits/icelandic_gambit/icelandic_gambit_recent.sql` | 20 most recent games |
+| `openings/gambits/icelandic_gambit/icelandic_gambit_top_wins.sql` | Highest rated opponents beaten |
+| `openings/gambits/blackmar_diemer_gambit/blackmar_diemer.sql` | BDG summary (White vs 1...d5) |
+| `openings/gambits/blackmar_diemer_gambit/blackmar_diemer_monthly.sql` | Monthly trend |
+| `openings/gambits/blackmar_diemer_gambit/blackmar_diemer_responses.sql` | Black's 3rd move |
+| `openings/gambits/blackmar_diemer_gambit/blackmar_diemer_opp_rating.sql` | Win% by ELO |
+| `openings/gambits/blackmar_diemer_gambit/blackmar_diemer_length.sql` | Win% by game length |
+| `openings/gambits/blackmar_diemer_gambit/blackmar_diemer_termination.sql` | How games end |
+| `openings/gambits/blackmar_diemer_gambit/blackmar_diemer_recent.sql` | 20 most recent games |
+| `openings/gambits/blackmar_diemer_gambit/blackmar_diemer_top_wins.sql` | Highest rated opponents beaten |
+| `openings/gambits/smith_morra_gambit/smith_morra.sql` | Smith-Morra summary (White vs 1...c5) |
+| `openings/gambits/smith_morra_gambit/smith_morra_monthly.sql` | Monthly trend |
+| `openings/gambits/smith_morra_gambit/smith_morra_responses.sql` | Black's 3rd move |
+| `openings/gambits/smith_morra_gambit/smith_morra_length.sql` | Win% by game length |
+| `openings/gambits/smith_morra_gambit/smith_morra_termination.sql` | How games end |
+| `openings/gambits/smith_morra_gambit/smith_morra_recent.sql` | 20 most recent games |
+| `openings/gambits/smith_morra_gambit/smith_morra_top_wins.sql` | Highest rated opponents beaten |
 
 ### Opponents
 
 | File | Description |
 |------|-------------|
-| `opponents_most_played.sql` | Most played opponents |
-| `opponents_toughest.sql` | Opponents with most wins against you |
-| `biggest_upsets.sql` | Wins against opponents rated 100+ higher |
-| `rematch_record.sql` | Result in rematches — revenge or tilt? |
+| `opponents/opponents_most_played.sql` | Most frequent opponents |
+| `opponents/opponents_toughest.sql` | Opponents with most wins against you |
+| `opponents/biggest_upsets.sql` | Wins against opponents rated 100+ higher |
+| `opponents/rematch_record.sql` | Revenge vs tilt in rematches |
+| `opponents/rating_vs_opponent.sql` | Win% by opponent rating band |
+| `opponents/draw_by_rating.sql` | Draw rate vs weaker/equal/stronger |
+| `opponents/fresh_vs_repeat.sql` | First game vs repeat opponents |
+| `opponents/titled_opponent_effect.sql` | Win% vs GM/IM/FM/CM/NM vs untitled |
 
-### Rating
-
-| File | Description |
-|------|-------------|
-| `rating_history.sql` | Monthly rating high/low (rapid) |
-| `rating_vs_opponent.sql` | Win rate vs opponent strength bands |
-| `rating_momentum.sql` | Rolling 10-game win rate — hot and cold streaks |
-| `draw_by_rating.sql` | Draw rate vs weaker / similar / stronger opponents |
-
-### Patterns & Psychology
+### Psychology
 
 | File | Description |
 |------|-------------|
-| `tilt_detection.sql` | Win rate after a win/loss/draw — detects tilt |
-| `session_fatigue.sql` | Win rate by game number in a session — detects fatigue |
-| `game_length_sweet_spot.sql` | Win rate by move count — short tactical vs long grind |
-| `time_pressure.sql` | Win rate by % of clock used |
-| `time_pressure_monthly.sql` | Time pressure trend month by month |
-| `time_of_day.sql` | Win rate by time of day (IST) |
-| `day_of_week.sql` | Win rate by day of week |
-| `losing_streaks.sql` | Longest losing streaks |
+| `psychology/tilt_detection.sql` | Win% after win/loss/draw — detects tilt |
+| `psychology/revenge_spiral.sql` | Win% in games 1-5 after a loss |
+| `psychology/losing_streaks.sql` | Longest losing streaks |
+| `psychology/win_streaks.sql` | Longest winning streaks |
+| `psychology/color_gap_after_loss.sql` | Does losing as White affect Black games? |
+| `psychology/collapse_recovery.sql` | Next game after a long vs short loss |
+| `psychology/rating_anxiety.sql` | Win% near rating milestones (every 50 pts) |
+| `psychology/session_fatigue.sql` | Win% by game number in a session |
+| `psychology/rest_effect.sql` | Win% by break length before session |
+| `psychology/streak_day_performance.sql` | Multi-day streaks: momentum or burnout? |
 
-### Mindset & Psychology (Deep)
+### Time
 
 | File | Description |
 |------|-------------|
-| `revenge_spiral.sql` | Win rate in games 1–5 after a loss — revenge vs tilt |
-| `rest_effect.sql` | Win rate by break length: same session → 7+ days |
-| `format_switching.sql` | First-of-session vs same-format vs switched-format win rate |
-| `collapse_recovery.sql` | Next game after long loss (collapse) vs short loss (blunder) |
-| `day_time_combined.sql` | Day of week × time of day combined — peak performance slot |
-| `rating_anxiety.sql` | Win rate near rating milestones (every 50 pts) — choke factor |
-| `titled_opponent_effect.sql` | Intimidation factor vs GM/IM/FM/CM/NM vs untitled |
-| `streak_day_performance.sql` | Consecutive-day streak: momentum build or fatigue? |
-| `color_gap_after_loss.sql` | White/black mindset gap — does losing as one color affect the other? |
+| `time/time_pressure.sql` | Win% by % of clock used |
+| `time/time_pressure_monthly.sql` | Time pressure trend month by month |
+| `time/clock_battle.sql` | Win% by clock ratio (you vs opponent) |
+| `time/time_of_day.sql` | Win% by time of day (IST) |
+| `time/day_of_week.sql` | Win% by day of week |
+| `time/day_time_combined.sql` | Day × time slot peak performance |
 
-> `first_move_speed.py` parses `[%clk]` PGN annotations and runs as a standalone script:
+> `time/first_move_speed.py` parses `[%clk]` PGN annotations:
 > ```bash
-> .venv/bin/python queries/first_move_speed.py
-> # username read from $CHESS_USERNAME, or pass --user <username>
+> .venv/bin/python queries/time/first_move_speed.py
+> ```
+
+### Checkmates
+
+| File | Description |
+|------|-------------|
+| `checkmates/checkmate_distribution.sql` | Checkmate win/loss ratio by opening |
+| `checkmates/checkmate_openings.sql` | Which openings end in checkmate most |
+| `checkmates/fastest_checkmates.sql` | Your fastest checkmate wins |
+| `checkmates/fastest_mated.sql` | Games where you were mated fastest |
+| `checkmates/missed_mates_summary.sql` | Monthly missed M1/M2 summary |
+| `checkmates/missed_mates_by_opening.sql` | Which openings produce most missed mates |
+| `checkmates/missed_mates_recent.sql` | Recent missed mates with game links |
+
+> `checkmates/missed_mates.py` — one-time scan (requires python-chess):
+> ```bash
+> .venv/bin/python queries/checkmates/missed_mates.py
+> .venv/bin/python queries/checkmates/missed_mates.py --force  # full rescan
 > ```
 
 ---
 
 ## Ad-hoc Query Examples
-
-All examples use `$USERNAME` which is substituted automatically when run via `python main.py query`.
 
 ### Overall Summary
 
@@ -165,53 +254,30 @@ GROUP BY termination
 ORDER BY cnt DESC
 ```
 
-### Game Quality
+### Opening Move Analysis
 
 ```sql
--- Short games: likely early blunders or quick resignations (rapid, move_count < 20)
-SELECT strftime(to_timestamp(end_time), '%Y-%m-%d') AS date,
-       move_count, user_result, opponent, opening
+-- Your 2nd move vs every Black first move (White games)
+SELECT regexp_extract(pgn, '1\.\.\. ([A-Za-z][A-Za-z0-9x+#=-]*)', 1) AS black_1st,
+       regexp_extract(pgn, '2\. ([A-Za-z][A-Za-z0-9x+#=-]*)', 1)     AS your_2nd,
+       COUNT(*) AS games,
+       ROUND(100.0 * SUM(CASE WHEN user_result = 'win' THEN 1 ELSE 0 END) / COUNT(*), 1) AS win_pct
 FROM games
-WHERE (white = $USERNAME OR black = $USERNAME)
-  AND move_count IS NOT NULL AND move_count < 20
-  AND time_class = 'rapid'
-ORDER BY move_count ASC
-LIMIT 20
+WHERE white = $USERNAME AND time_class = 'rapid'
+GROUP BY black_1st, your_2nd
+HAVING COUNT(*) >= 5
+ORDER BY black_1st, games DESC
 ```
 
 ```sql
--- Longest games (most moves, rapid)
-SELECT strftime(to_timestamp(end_time), '%Y-%m-%d') AS date,
-       move_count, game_duration_secs / 60 AS duration_min,
-       user_result, opponent, opening
+-- Win rate at each move number in WQ games (move 3-8)
+SELECT 3 AS move, regexp_extract(pgn, '3\. ([A-Za-z][A-Za-z0-9x+#=-]*)', 1) AS white_move,
+       COUNT(*) AS games,
+       ROUND(100.0 * SUM(CASE WHEN user_result = 'win' THEN 1 ELSE 0 END) / COUNT(*), 1) AS win_pct
 FROM games
-WHERE (white = $USERNAME OR black = $USERNAME)
-  AND time_class = 'rapid' AND move_count IS NOT NULL
-ORDER BY move_count DESC
-LIMIT 20
-```
-
-```sql
--- Average game length by format
-SELECT time_class,
-       ROUND(AVG(game_duration_secs) / 60.0, 1) AS avg_duration_min,
-       ROUND(AVG(move_count), 1) AS avg_moves
-FROM games
-WHERE (white = $USERNAME OR black = $USERNAME)
-  AND game_duration_secs IS NOT NULL
-GROUP BY time_class
-```
-
-```sql
--- Timeout (flagging) rate by format
-SELECT time_class,
-       SUM(CASE WHEN white_result = 'timeout' OR black_result = 'timeout' THEN 1 ELSE 0 END) AS timeouts,
-       COUNT(*) AS total,
-       ROUND(100.0 * SUM(CASE WHEN white_result = 'timeout' OR black_result = 'timeout' THEN 1 ELSE 0 END)
-             / COUNT(*), 1) AS timeout_pct
-FROM games
-WHERE white = $USERNAME OR black = $USERNAME
-GROUP BY time_class
+WHERE white = $USERNAME AND regexp_matches(pgn, '(^|[\s}])2\. Qh5')
+GROUP BY white_move HAVING COUNT(*) >= 5
+ORDER BY games DESC
 ```
 
 ### This Month

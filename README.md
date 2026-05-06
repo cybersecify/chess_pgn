@@ -122,14 +122,14 @@ python main.py export --time-class rapid -n 50 -o recent_rapid.pgn
 python main.py opponent MagnusCarlsen
 
 # Run a built-in analysis query
-python main.py query queries/tilt_detection.sql
+python main.py query queries/psychology/tilt_detection.sql
 
 # Raw SQL
 python main.py query "SELECT opening, COUNT(*) FROM games GROUP BY 1 ORDER BY 2 DESC LIMIT 10"
 
 # Analyse a different user
 python main.py stats neopaque
-CHESS_USERNAME=neopaque python main.py query queries/summary.sql
+CHESS_USERNAME=neopaque python main.py query queries/general/summary.sql
 ```
 
 ## Project Structure
@@ -140,7 +140,14 @@ src/
   store.py        — DuckDB layer: schema, upsert, queries, stats
   cli.py          — CLI subcommands
 main.py           — entry point
-queries/          — 35 SQL analysis files (use $USERNAME placeholder)
+queries/          — 94 SQL analysis files organised by category
+  openings/       — traps, gambits, white/black responses, opening stats
+  performance/    — rating, trends, volume, termination
+  psychology/     — tilt, streaks, fatigue, anxiety
+  time/           — clock, day/time patterns, time pressure
+  opponents/      — most played, toughest, rematches
+  checkmates/     — missed mates, fastest, distribution
+  general/        — summary, recent games
 data/
   {username}.duckdb  — local game database (gitignored)
 tests/
@@ -148,6 +155,8 @@ tests/
   test_cli.py        — CLI integration tests
   test_downloader.py — API client unit tests
 ```
+
+See `SKILL.md` for a full guide on which queries to run and how to interpret results.
 
 ## Running Tests
 
